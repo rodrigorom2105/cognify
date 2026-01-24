@@ -1,0 +1,11 @@
+node_modules
+.next
+out
+dist
+.vercel
+build
+coverage
+public
+*.config.js
+*.config.ts
+*.config.mjs
