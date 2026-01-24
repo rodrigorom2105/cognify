@@ -49,6 +49,7 @@ next-env.d.ts
 .temp
 supabase/.branches
 supabase/.temp
+passwords.txt
 
 # OS
 .DS_Store
