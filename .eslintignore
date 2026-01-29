@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+.pnpm/
+
+# Build outputs
+.next/
+dist/
+build/
+out/
+
+# Environment files
+.env*
+
+# Coverage reports
+coverage/
+
+# Config files
+*.config.js
+*.config.mjs
+*.config.ts
+
+# Static assets
+public/
+
+# TypeScript declaration files
+*.d.ts
