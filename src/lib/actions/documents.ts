@@ -99,7 +99,7 @@ export async function uploadDocument(formData: FormData) {
   }
 }
 
-export async function deleteDocument(documentId: number) {
+export async function deleteDocument(documentId: string) {
   try {
     // Get authenticated user
     const supabase = await createClient();
