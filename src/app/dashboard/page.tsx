@@ -47,7 +47,7 @@ export default async function DashboardPage() {
       {/* Welcome Section */}
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Welcome back!</h1>
-        <p className="text-gray-600 mt-1">{user.email}</p>
+        <p className="text-gray-600 mt-1">{user.user_metadata.name}</p>
       </div>
 
       {/* Stats Grid */}
