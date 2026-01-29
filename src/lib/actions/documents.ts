@@ -15,6 +15,8 @@ export async function uploadDocument(formData: FormData) {
       data: { user },
     } = await supabase.auth.getUser();
 
+    if (!user) return { success: false, message: 'User not authenticated' };
+
     // Validate file exists, is PDF, under 10MB
     if (!file) return { success: false, message: 'No file provided' };
     if (!file.type.includes('pdf'))
@@ -22,18 +24,12 @@ export async function uploadDocument(formData: FormData) {
     if (file.size > 10 * 1024 * 1024)
       return { success: false, message: 'File size exceeds 10MB limit' };
 
-    if (!user) return { success: false, message: 'User not authenticated' };
-
-    // Check user hasn't exceeded 10 documents (query user_usage)
+    // Check user hasn't exceeded 10 documents uploaded
     const { data: usage, error: usageQueryError } = await supabase
       .from('user_usage')
       .select('documents_uploaded')
       .eq('user_id', user.id)
       .single();
-
-    if (usageQueryError && usageQueryError.code !== 'PGRST116') {
-      throw new Error(`Failed to query user usage: ${usageQueryError.message}`);
-    }
 
     if (usage && usage.documents_uploaded >= 10) {
       return { success: false, message: 'Document upload limit reached' };
@@ -72,8 +68,7 @@ export async function uploadDocument(formData: FormData) {
       // Increment user_usage.documents_uploaded
       const { error: usageError } = await supabase
         .from('user_usage')
-        .upsert({
-          user_id: user.id,
+        .update({
           documents_uploaded: (usage?.documents_uploaded || 0) + 1,
         })
         .eq('user_id', user.id);
@@ -92,8 +87,7 @@ export async function uploadDocument(formData: FormData) {
   } catch (error) {
     return {
       success: false,
-      message:
-        error instanceof Error ? error.message : 'An unexpected error occurred',
+      message: 'An unexpected error occurred',
       error: error instanceof Error ? error.message : 'Unknown error',
     };
   }
@@ -157,16 +151,15 @@ export async function deleteDocument(documentId: string) {
         .eq('user_id', user.id)
         .single();
 
-      if (usageQueryError && usageQueryError.code !== 'PGRST116') {
+      if (usageQueryError) {
         throw new Error(
-          `Failed to query user usage: ${usageQueryError.message}`
+          `Failed to fetch user usage: ${usageQueryError.message}`
         );
       }
 
       const { error: usageError } = await supabase
         .from('user_usage')
-        .upsert({
-          user_id: user.id,
+        .update({
           documents_uploaded: Math.max((usage?.documents_uploaded || 1) - 1, 0),
         })
         .eq('user_id', user.id);
@@ -186,8 +179,7 @@ export async function deleteDocument(documentId: string) {
   } catch (error) {
     return {
       success: false,
-      message:
-        error instanceof Error ? error.message : 'An unexpected error occurred',
+      message: 'An unexpected error occurred',
       error: error instanceof Error ? error.message : 'Unknown error',
     };
   }
