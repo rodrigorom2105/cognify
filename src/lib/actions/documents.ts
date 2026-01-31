@@ -171,6 +171,7 @@ export async function deleteDocument(documentId: string) {
       }
 
       // Return { success: true }
+      revalidatePath('/dashboard/documents');
       return { success: true, message: 'Document deleted successfully' };
     } catch (dbError) {
       // If database operations fail after storage deletion, we can't rollback the storage deletion
