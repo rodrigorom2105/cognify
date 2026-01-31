@@ -11,8 +11,7 @@ export default function DashboardPage() {
   const tokensConsumed = 0;
 
   return (
-
-    <div className="space-y-6">
+    <main className="space-y-6">
       {/* Welcome Section */}
       <div>
         <h1 className="text-3xl font-bold text-foreground">Welcome back!</h1>
@@ -102,6 +101,6 @@ export default function DashboardPage() {
           </div>
         </CardContent>
       </Card>
-    </div>
+    </main>
   );
 }

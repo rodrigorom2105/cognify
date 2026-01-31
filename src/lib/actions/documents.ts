@@ -1,6 +1,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { revalidatePath } from 'next/dist/server/web/spec-extension/revalidate';
 
 export async function uploadDocument(formData: FormData) {
   try {
@@ -78,6 +79,7 @@ export async function uploadDocument(formData: FormData) {
       }
 
       // Return { success: true }
+      revalidatePath('/dashboard/documents');
       return { success: true, message: 'File uploaded successfully', data };
     } catch (dbError) {
       // If database operations fail, clean up the uploaded file
@@ -182,5 +184,31 @@ export async function deleteDocument(documentId: string) {
       message: 'An unexpected error occurred',
       error: error instanceof Error ? error.message : 'Unknown error',
     };
+  }
+}
+
+export async function getDocumentUrl(documentPath: string) {
+  try {
+    const supabase = await createClient();
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      throw new Error('Unauthorized');
+    }
+
+    const { data, error } = await supabase.storage
+      .from('documents')
+      .createSignedUrl(documentPath, 60);
+
+    if (error || !data) {
+      throw new Error(`Failed to get signed URL: ${error.message}`);
+    }
+
+    return { success: true, url: data.signedUrl };
+  } catch (error: Error | any) {
+    return { success: false, message: error.message };
   }
 }
