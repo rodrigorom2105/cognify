@@ -1,23 +1,19 @@
 'use client';
 
-import { useState } from 'react';
 import { Document } from '@/types';
 import { Button } from '@/components/ui/button';
-import { deleteDocument } from '@/lib/actions/documents';
 
 interface DocumentCardProps {
   document: Document;
+  isDeleting: boolean;
+  onDelete: () => void;
 }
 
-export default function DocumentCard({ document }: DocumentCardProps) {
-  const [deleting, setDeleting] = useState(false);
-
-  const handleDeleteButtonClick = async () => {
-    setDeleting(true);
-    await deleteDocument(document.id);
-    setDeleting(false);
-  };
-
+export default function DocumentCard({
+  document,
+  isDeleting,
+  onDelete,
+}: DocumentCardProps) {
   return (
     <div className="flex items-center justify-between p-4 hover:bg-gray-50 transition">
       <div className="min-w-0">
@@ -34,10 +30,10 @@ export default function DocumentCard({ document }: DocumentCardProps) {
       <Button
         variant="destructive"
         size="sm"
-        onClick={handleDeleteButtonClick}
-        disabled={deleting}
+        onClick={onDelete}
+        disabled={isDeleting}
       >
-        {deleting ? 'Deleting...' : 'Delete'}
+        {isDeleting ? 'Deleting...' : 'Delete'}
       </Button>
     </div>
   );

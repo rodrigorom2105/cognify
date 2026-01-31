@@ -1,7 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import UploadZone from '@/components/documents/upload-zone';
 import DocumentList from '@/components/documents/document-list';
-import { file } from 'zod';
 
 export default async function DocumentsPage() {
   const supabase = await createClient();
@@ -40,9 +39,9 @@ export default async function DocumentsPage() {
           <DocumentList documents={documents} />
         </div>
       ) : (
-        <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-          <p className="text-gray-500 text-lg">No documents yet</p>
-          <p className="text-gray-400 text-sm mt-2">
+        <div className="text-center py-12">
+          <p className="text-lg">No documents yet</p>
+          <p className="text-sm mt-2">
             Upload your first PDF to get started
           </p>
         </div>
