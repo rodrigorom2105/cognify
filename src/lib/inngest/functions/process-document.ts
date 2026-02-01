@@ -2,7 +2,6 @@ import { inngest } from '@/lib/inngest/client';
 import { createServiceClient } from '@/lib/supabase/service';
 import { generateEmbeddingsInBatches } from '@/lib/openai/embeddings';
 import { chunkText, getChunkingStats } from '@/lib/utils';
-import { revalidatePath } from 'next/cache';
 import { PDFParse } from 'pdf-parse';
 
 /**
@@ -204,8 +203,6 @@ export const processDocument = inngest.createFunction(
           throw new Error(`Failed to update document status: ${error.message}`);
         }
 
-        // Revalidate the documents page to show updated status
-        revalidatePath('/dashboard/documents');
         console.log('[Step 6] Document status updated to ready');
       });
 
@@ -242,9 +239,6 @@ export const processDocument = inngest.createFunction(
           .from('documents')
           .update({ status: 'failed' })
           .eq('id', documentId);
-
-        // Revalidate documents page to show failed status
-        revalidatePath('/dashboard/documents');
       });
 
       // Send failure event
