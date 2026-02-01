@@ -1,8 +1,22 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { inngest } from '@/lib/inngest/client';
 import { revalidatePath } from 'next/dist/server/web/spec-extension/revalidate';
 
+/**
+ * Upload a document and trigger background processing
+ *
+ * Steps:
+ * 1. Validate file (PDF only, max 10MB)
+ * 2. Check user's upload limit (10 documents/month for free tier)
+ * 3. Upload file to Supabase Storage
+ * 4. Create document record in database
+ * 5. Trigger Inngest processing job
+ *
+ * @param formData - FormData containing the PDF file
+ * @returns Success message or error
+ */
 export async function uploadDocument(formData: FormData) {
   try {
     // Extract file from FormData
@@ -32,7 +46,13 @@ export async function uploadDocument(formData: FormData) {
       .eq('user_id', user.id)
       .single();
 
-    if (usage && usage.documents_uploaded >= 10) {
+    if (usageQueryError) {
+      throw new Error(`Failed to fetch user usage: ${usageQueryError.message}`);
+    }
+
+    const USER_FREE_USAGE_LIMIT = 10;
+
+    if (usage && usage.documents_uploaded >= USER_FREE_USAGE_LIMIT) {
       return { success: false, message: 'Document upload limit reached' };
     }
 
@@ -52,21 +72,23 @@ export async function uploadDocument(formData: FormData) {
 
     try {
       // Create database record
-      const { error: documentError } = await supabase.from('documents').insert({
-        user_id: user.id,
-        filename: file.name,
-        storage_path: storagePath,
-        status: 'processing',
-        file_size_bytes: file.size,
-      });
+      const { data: document, error: dbError } = await supabase
+        .from('documents')
+        .insert({
+          user_id: user.id,
+          filename: file.name,
+          storage_path: storagePath,
+          status: 'processing',
+          file_size_bytes: file.size,
+        })
+        .select()
+        .single();
 
-      if (documentError) {
-        throw new Error(
-          `Failed to create document record: ${documentError.message}`
-        );
+      if (dbError) {
+        throw new Error(`Failed to create document record: ${dbError.message}`);
       }
 
-      // Call DB function to increment user_usage.documents_uploaded
+      // Increment user's document count
       const { error: usageError } = await supabase.rpc(
         'increment_documents_uploaded',
         {
@@ -78,9 +100,28 @@ export async function uploadDocument(formData: FormData) {
         throw new Error(`Failed to update user usage: ${usageError.message}`);
       }
 
-      // Return { success: true }
+      // Trigger Inngest function to process document
+
+      await inngest.send({
+        name: 'document.uploaded',
+        data: {
+          documentId: document.id,
+          userId: user.id,
+          storagePath: storagePath,
+          filename: file.name,
+        },
+      });
+
+      console.log(`Document uploaded successfully: ${document.id}`);
+
+      // Revalidate the documents page to show new upload
       revalidatePath('/dashboard/documents');
-      return { success: true, message: 'File uploaded successfully', data };
+
+      return {
+        success: true,
+        message: 'Document uploaded successfully. Processing has started.',
+        documentId: document.id,
+      };
     } catch (dbError) {
       // If database operations fail, clean up the uploaded file
       await supabase.storage.from('documents').remove([storagePath]);
@@ -95,6 +136,12 @@ export async function uploadDocument(formData: FormData) {
   }
 }
 
+/**
+ * Delete a document and all associated chunks
+ *
+ * @param documentId - UUID of the document to delete
+ * @returns Success message or error
+ */
 export async function deleteDocument(documentId: string) {
   try {
     // Get authenticated user
@@ -103,50 +150,48 @@ export async function deleteDocument(documentId: string) {
       data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) return { success: false, message: 'User not authenticated' };
+    if (!user) throw new Error('Unauthorized user');
 
     // Fetch document record
     const { data: document, error: fetchError } = await supabase
       .from('documents')
-      .select('*')
+      .select('storage_path, user_id')
       .eq('id', documentId)
-      .eq('user_id', user.id)
       .single();
 
     if (fetchError || !document) {
-      return {
-        success: false,
-        message: 'Document not found',
-        error: fetchError?.message,
-      };
+      throw new Error('Document not found');
+    }
+
+    // Verify ownership (RLS should handle this, but double-check)
+    if (document.user_id !== user.id) {
+      throw new Error('You do not have permission to delete this document');
     }
 
     // Delete from Storage using storage_path
-    const { error: deleteError } = await supabase.storage
+    const { error: storageError } = await supabase.storage
       .from('documents')
       .remove([document.storage_path]);
 
-    if (deleteError) {
-      throw new Error(
-        `Failed to delete file from storage: ${deleteError.message}`
-      );
+    if (storageError) {
+      console.error('Failed to delete file from storage:', storageError);
+      // Continue with database cleanup even if storage deletion fails
     }
 
     try {
       // Delete database record
-      const { error: recordError } = await supabase
+      const { error: deleteError } = await supabase
         .from('documents')
         .delete()
-        .eq('id', documentId)
-        .eq('user_id', user.id);
+        .eq('id', documentId);
 
-      if (recordError) {
+      if (deleteError) {
         throw new Error(
-          `Failed to delete document record: ${recordError.message}`
+          `Failed to delete document record: ${deleteError.message}`
         );
       }
 
-      // Call DB function to decrement user_usage.documents_uploaded
+      // Decrement user_usage.documents_uploaded
       const { error: usageError } = await supabase.rpc(
         'decrement_documents_uploaded',
         {
@@ -165,13 +210,51 @@ export async function deleteDocument(documentId: string) {
       // If database operations fail after storage deletion, we can't rollback the storage deletion
       // Log this as a warning but don't throw - the file is already deleted
       console.warn('Database operation failed after file deletion:', dbError);
-      throw dbError;
     }
   } catch (error) {
     return {
       success: false,
       message: 'An unexpected error occurred',
       error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+/**
+ * Get all documents for the current user
+ * 
+ * @returns Array of documents or error
+ */
+export async function getUserDocuments() {
+  try {
+    const supabase = await createClient();
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return { error: 'You must be logged in to view documents' };
+    }
+
+    const { data: documents, error } = await supabase
+      .from('documents')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Fetch documents error:', error);
+      return { error: `Failed to fetch documents: ${error.message}` };
+    }
+
+    return { success: true, documents };
+  } catch (error) {
+    console.error('Get user documents error:', error);
+    return {
+      error:
+        error instanceof Error ? error.message : 'An unexpected error occurred',
     };
   }
 }
