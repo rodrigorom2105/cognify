@@ -106,20 +106,25 @@ export async function uploadDocument(formData: FormData) {
 
       // Trigger Inngest function to process document
 
-      await inngest.send({
-        name: 'document.uploaded',
-        data: {
-          documentId: document.id,
-          userId: user.id,
-          storagePath: storagePath,
-          filename: file.name,
-        },
-      });
+      await inngest
+        .send({
+          name: 'document.uploaded',
+          data: {
+            documentId: document.id,
+            userId: user.id,
+            storagePath: storagePath,
+            filename: file.name,
+          },
+          // Manage response from inngest if needed (not shown here)
+        })
+        .catch((inngestError) => {
+          console.error('Inngest trigger failed:', inngestError);
+        })
+        .finally(() => {
+          revalidatePath('/dashboard/documents');
+        });
 
       console.log(`Document uploaded successfully: ${document.id}`);
-
-      // Revalidate the documents page to show new upload
-      revalidatePath('/dashboard/documents');
 
       return {
         success: true,
@@ -257,6 +262,7 @@ export async function getUserDocuments() {
   } catch (error) {
     console.error('Get user documents error:', error);
     return {
+      success: false,
       error:
         error instanceof Error ? error.message : 'An unexpected error occurred',
     };
