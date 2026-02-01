@@ -14,7 +14,7 @@ import { createClient as createSupabaseClient } from '@supabase/supabase-js';
  * DO NOT use in API routes that handle user requests directly.
  * For user-authenticated operations, use @/lib/supabase/server instead.
  */
-export function createServiceClient() {
+export async function createServiceClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
