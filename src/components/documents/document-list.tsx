@@ -8,7 +8,11 @@ import { deleteDocument } from '@/lib/actions/documents';
 export default function DocumentList({ documents }: { documents: Document[] }) {
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
 
-  const handleDelete = async (documentId: string) => {
+  const handleDelete = async (documentId: string, filename: string) => {
+    if (!confirm(`Are you sure you want to delete "${filename}"?`)) {
+      return;
+    }
+
     setDeletingIds((prev) => new Set(prev).add(documentId));
     await deleteDocument(documentId);
     setDeletingIds((prev) => {
@@ -25,7 +29,7 @@ export default function DocumentList({ documents }: { documents: Document[] }) {
           key={doc.id}
           document={doc}
           isDeleting={deletingIds.has(doc.id)}
-          onDelete={() => handleDelete(doc.id)}
+          onDelete={() => handleDelete(doc.id, doc.filename)}
         />
       ))}
     </div>
