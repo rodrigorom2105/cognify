@@ -2,8 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { inngest } from '@/lib/inngest/client';
-import { revalidatePath } from 'next/dist/server/web/spec-extension/revalidate';
-
+import { revalidatePath } from 'next/cache';
 /**
  * Upload a document and trigger background processing
  *
@@ -119,12 +118,12 @@ export async function uploadDocument(formData: FormData) {
         })
         .catch((inngestError) => {
           console.error('Inngest trigger failed:', inngestError);
-        })
-        .finally(() => {
-          revalidatePath('/dashboard/documents');
         });
 
       console.log(`Document uploaded successfully: ${document.id}`);
+
+      // Just revalidate - let client handle refresh
+      revalidatePath('/dashboard/documents');
 
       return {
         success: true,
@@ -214,6 +213,7 @@ export async function deleteDocument(documentId: string) {
 
       // Return { success: true }
       revalidatePath('/dashboard/documents');
+
       return { success: true, message: 'Document deleted successfully' };
     } catch (dbError) {
       // If database operations fail after storage deletion, we can't rollback the storage deletion
