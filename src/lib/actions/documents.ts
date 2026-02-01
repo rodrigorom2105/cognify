@@ -66,13 +66,13 @@ export async function uploadDocument(formData: FormData) {
         );
       }
 
-      // Increment user_usage.documents_uploaded
-      const { error: usageError } = await supabase
-        .from('user_usage')
-        .update({
-          documents_uploaded: (usage?.documents_uploaded || 0) + 1,
-        })
-        .eq('user_id', user.id);
+      // Call DB function to increment user_usage.documents_uploaded
+      const { error: usageError } = await supabase.rpc(
+        'increment_documents_uploaded',
+        {
+          user_id_input: user.id,
+        }
+      );
 
       if (usageError) {
         throw new Error(`Failed to update user usage: ${usageError.message}`);
@@ -146,25 +146,13 @@ export async function deleteDocument(documentId: string) {
         );
       }
 
-      // Decrement user_usage.documents_uploaded
-      const { data: usage, error: usageQueryError } = await supabase
-        .from('user_usage')
-        .select('documents_uploaded')
-        .eq('user_id', user.id)
-        .single();
-
-      if (usageQueryError) {
-        throw new Error(
-          `Failed to fetch user usage: ${usageQueryError.message}`
-        );
-      }
-
-      const { error: usageError } = await supabase
-        .from('user_usage')
-        .update({
-          documents_uploaded: Math.max((usage?.documents_uploaded || 1) - 1, 0),
-        })
-        .eq('user_id', user.id);
+      // Call DB function to decrement user_usage.documents_uploaded
+      const { error: usageError } = await supabase.rpc(
+        'decrement_documents_uploaded',
+        {
+          user_id_input: user.id,
+        }
+      );
 
       if (usageError) {
         throw new Error(`Failed to update user usage: ${usageError.message}`);
