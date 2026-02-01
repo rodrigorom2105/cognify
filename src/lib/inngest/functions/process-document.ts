@@ -37,61 +37,64 @@ export const processDocument = inngest.createFunction(
     try {
       // Step 1: Get signed URL for PDF from Supabase Storage
       // Step 2: Extract text from PDF using URL
-      const extractedData = await step.run('download-and-extract-text', async () => {
-        console.log(`[Step 1] Getting signed URL for PDF: ${storagePath}`);
+      const extractedData = await step.run(
+        'download-and-extract-text',
+        async () => {
+          console.log(`[Step 1] Getting signed URL for PDF: ${storagePath}`);
 
-        const supabase = await createServiceClient();
+          const supabase = await createServiceClient();
 
-        const { data, error } = await supabase.storage
-          .from('documents')
-          .createSignedUrl(storagePath, 3600); // 1 hour expiry
+          const { data, error } = await supabase.storage
+            .from('documents')
+            .createSignedUrl(storagePath, 3600); // 1 hour expiry
 
-        if (error) {
-          throw new Error(`Failed to create signed URL: ${error.message}`);
-        }
-
-        if (!data || !data.signedUrl) {
-          throw new Error('No signed URL received from storage');
-        }
-
-        console.log(`[Step 1] Generated signed URL`);
-        console.log(data.signedUrl);
-
-        console.log('[Step 2] Extracting text from PDF');
-        // Initialize PDFParse with URL (v2 API)
-        const parser = new PDFParse({ url: data.signedUrl })
-
-        try {
-          // Use getText() method to extract text and getInfo() for metadata
-          const [textResult, infoResult] = await Promise.all([
-            parser.getText(),
-            parser.getInfo(),
-          ]);
-
-          if (!textResult.text || textResult.text.trim().length === 0) {
-            throw new Error(
-              'No text found in PDF. Document may be scanned or image-based.'
-            );
+          if (error) {
+            throw new Error(`Failed to create signed URL: ${error.message}`);
           }
 
-          const result = {
-            text: textResult.text.trim(),
-            pageCount: infoResult.total || 0,
-            metadata: {
-              info: infoResult.info,
-              metadata: infoResult.metadata,
-            },
-          };
+          if (!data || !data.signedUrl) {
+            throw new Error('No signed URL received from storage');
+          }
 
-          console.log(
-            `[Step 2] Extracted ${result.text.length} characters from ${result.pageCount} pages`
-          );
-          return result;
-        } finally {
-          // Always destroy parser to free memory (v2 requirement)
-          await parser.destroy();
+          console.log(`[Step 1] Generated signed URL`);
+          console.log(data.signedUrl);
+
+          console.log('[Step 2] Extracting text from PDF');
+          // Initialize PDFParse with URL (v2 API)
+          const parser = new PDFParse({ url: data.signedUrl });
+
+          try {
+            // Use getText() method to extract text and getInfo() for metadata
+            const [textResult, infoResult] = await Promise.all([
+              parser.getText(),
+              parser.getInfo(),
+            ]);
+
+            if (!textResult.text || textResult.text.trim().length === 0) {
+              throw new Error(
+                'No text found in PDF. Document may be scanned or image-based.'
+              );
+            }
+
+            const result = {
+              text: textResult.text.trim(),
+              pageCount: infoResult.total || 0,
+              metadata: {
+                info: infoResult.info,
+                metadata: infoResult.metadata,
+              },
+            };
+
+            console.log(
+              `[Step 2] Extracted ${result.text.length} characters from ${result.pageCount} pages`
+            );
+            return result;
+          } finally {
+            // Always destroy parser to free memory (v2 requirement)
+            await parser.destroy();
+          }
         }
-      });
+      );
 
       // Step 3: Chunk text into manageable pieces
       const chunks = await step.run('chunk-text', async () => {
@@ -161,7 +164,7 @@ export const processDocument = inngest.createFunction(
         for (let i = 0; i < chunksToInsert.length; i += BATCH_SIZE) {
           const batch = chunksToInsert.slice(i, i + BATCH_SIZE);
 
-          const { error, count } = await supabase
+          const { error } = await supabase
             .from('document_chunks')
             .insert(batch);
 
@@ -174,7 +177,8 @@ export const processDocument = inngest.createFunction(
 
           insertedCount += batch.length;
           console.log(
-            `[Step 5] Inserted batch ${Math.floor(i / BATCH_SIZE) + 1}/ ${Math.ceil(chunksToInsert.length / BATCH_SIZE)}`
+            `[Step 5] Inserted batch ${i / BATCH_SIZE + 1}/${Math.ceil(chunksToInsert.length / BATCH_SIZE)} ` +
+              `(${insertedCount}/${chunksToInsert.length} chunks total)`
           );
         }
 
