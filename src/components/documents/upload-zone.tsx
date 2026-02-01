@@ -4,8 +4,10 @@ import { cn } from '@/lib/utils';
 import React, { useCallback, useState } from 'react';
 import { uploadDocument } from '@/lib/actions/documents';
 import { Upload } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 export default function UploadZone() {
+  const router = useRouter();
   const [isUploading, setIsUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,6 +52,8 @@ export default function UploadZone() {
           } else {
             setError(null);
             setSuccess('Upload successful!');
+            router.refresh();
+            console.log('Refresh!')
           }
         })
         .finally(() => {
