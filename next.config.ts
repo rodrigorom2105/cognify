@@ -11,6 +11,7 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  serverExternalPackages: ['@inngest/next', 'pdf-parse'],
   experimental: {
     serverActions: {
       bodySizeLimit: '10mb',
