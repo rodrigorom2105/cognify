@@ -30,7 +30,11 @@ export async function uploadDocument(formData: FormData) {
       data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) return { success: false, message: 'User not authenticated' };
+    if (!user)
+      return {
+        success: false,
+        message: 'You must be logged in to upload documents',
+      };
 
     // Validate file exists, is PDF, under 10MB
     if (!file) return { success: false, message: 'No file provided' };
@@ -150,7 +154,7 @@ export async function deleteDocument(documentId: string) {
       data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) throw new Error('Unauthorized user');
+    if (!user) throw new Error('You must be logged in to delete documents');
 
     // Fetch document record
     const { data: document, error: fetchError } = await supabase
@@ -222,7 +226,7 @@ export async function deleteDocument(documentId: string) {
 
 /**
  * Get all documents for the current user
- * 
+ *
  * @returns Array of documents or error
  */
 export async function getUserDocuments() {
