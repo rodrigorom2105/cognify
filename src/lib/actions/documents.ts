@@ -122,7 +122,7 @@ export async function uploadDocument(formData: FormData) {
 
       console.log(`Document uploaded successfully: ${document.id}`);
 
-      // Just revalidate - let client handle refresh
+      // Revalidate the documents page to show the new document
       revalidatePath('/dashboard/documents');
 
       return {
@@ -211,7 +211,7 @@ export async function deleteDocument(documentId: string) {
         throw new Error(`Failed to update user usage: ${usageError.message}`);
       }
 
-      // Return { success: true }
+      // Revalidate the documents page to reflect the deletion
       revalidatePath('/dashboard/documents');
 
       return { success: true, message: 'Document deleted successfully' };
