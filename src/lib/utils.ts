@@ -1,5 +1,7 @@
 import { clsx, type ClassValue } from 'clsx';
+import { PDFParse } from 'pdf-parse';
 import { twMerge } from 'tailwind-merge';
+import { createServiceClient } from '@/lib/supabase/service';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -26,6 +28,8 @@ export function chunkText(
   if (!text || text.trim().length === 0) {
     return [];
   }
+
+  console.log('[Step 1] Chunking text');
 
   // Normalize whitespace and line breaks
   const normalizedText = text
@@ -197,4 +201,180 @@ export function getChunkingStats(chunks: string[]): {
     maxChunkSize: Math.max(...sizes),
     totalCharacters,
   };
+}
+
+type PDFTextResult = { data: string; pages: number };
+
+export async function extractPDFText(
+  signedUrl: string
+): Promise<PDFTextResult> {
+  console.log('[Step 1] Extracting text from PDF');
+  // Initialize PDFParse with URL (v2 API)
+  const parser = new PDFParse({ url: signedUrl });
+  try {
+    // Use getText() method to extract text and getInfo() for metadata
+    const [textResult, infoResult] = await Promise.all([
+      parser.getText(),
+      parser.getInfo(),
+    ]);
+
+    if (!textResult.text || textResult.text.trim().length === 0) {
+      throw new Error(
+        'No text found in PDF. Document may be scanned or image-based.'
+      );
+    }
+
+    console.log(
+      `[Step 1] Extracted ${textResult.text.length} characters from ${infoResult.total} pages`
+    );
+    return { data: textResult.text.trim(), pages: infoResult.total };
+  } finally {
+    // Always destroy parser to free memory (v2 requirement)
+    await parser.destroy();
+  }
+}
+
+export async function insertChunksInBatches(
+  documentId: string,
+  chunks: string[],
+  embeddings: number[][]
+): Promise<number> {
+  const supabase = await createServiceClient();
+
+  // Prepare chunks for insertion
+  const chunksToInsert = chunks.map((chunk, index) => ({
+    document_id: documentId,
+    content: chunk,
+    embedding: embeddings[index],
+    chunk_index: index,
+    metadata: {
+      length: chunk.length,
+      position: index,
+      totalChunks: chunks.length,
+    },
+  }));
+
+  // Insert in batches to avoid payload size limits
+  const BATCH_SIZE = 50;
+  let insertedCount = 0;
+
+  for (let i = 0; i < chunksToInsert.length; i += BATCH_SIZE) {
+    const batch = chunksToInsert.slice(i, i + BATCH_SIZE);
+
+    const { error } = await supabase.from('document_chunks').insert(batch);
+
+    // If insert fails, try cleaning up previously inserted chunks
+    if (error) {
+      await supabase.from('documents').delete().eq('id', documentId);
+
+      throw new Error(`Failed to insert chunks: ${error.message}`);
+    }
+
+    insertedCount += batch.length;
+    console.log(
+      `[Step 3] Inserted batch ${i / BATCH_SIZE + 1}/${Math.ceil(chunksToInsert.length / BATCH_SIZE)} ` +
+        `(${insertedCount}/${chunksToInsert.length} chunks total)`
+    );
+  }
+  return insertedCount;
+}
+
+export async function updateDocumentStatus(
+  documentId: string,
+  status: 'ready' | 'failed',
+  pageCount?: number
+): Promise<void> {
+  const supabase = await createServiceClient();
+
+  const { error } = await supabase
+    .from('documents')
+    .update({
+      status,
+      page_count: pageCount,
+    })
+    .eq('id', documentId);
+
+  if (error) {
+    throw new Error(`Failed to update document status: ${error.message}`);
+  }
+}
+
+/**
+ * Store temporary processing data in database
+ * Used for passing large data between Inngest steps
+ */
+export async function storeTempData(
+  documentId: string,
+  stepName: string,
+  data: any
+): Promise<void> {
+  const supabase = await createServiceClient();
+
+  const { error } = await supabase.from('processing_temp').upsert(
+    {
+      document_id: documentId,
+      step_name: stepName,
+      data: data,
+    },
+    {
+      onConflict: 'document_id,step_name',
+    }
+  );
+
+  if (error) {
+    throw new Error(`Failed to store temp data: ${error.message}`);
+  }
+
+  console.log(`[TempStorage] Stored ${stepName} for document ${documentId}`);
+}
+
+/**
+ * Retrieve temporary processing data from database
+ */
+export async function getTempData<T = any>(
+  documentId: string,
+  stepName: string
+): Promise<T> {
+  const supabase = await createServiceClient();
+
+  const { data, error } = await supabase
+    .from('processing_temp')
+    .select('data')
+    .eq('document_id', documentId)
+    .eq('step_name', stepName)
+    .single();
+
+  if (error) {
+    throw new Error(`Failed to retrieve temp data: ${error.message}`);
+  }
+
+  if (!data) {
+    throw new Error(`No temp data found for ${stepName}`);
+  }
+
+  console.log(`[TempStorage] Retrieved ${stepName} for document ${documentId}`);
+
+  return data.data as T;
+}
+
+/**
+ * Clean up temporary data for a document
+ * Call this after successful processing or on failure
+ */
+export async function cleanupTempData(documentId: string): Promise<void> {
+  const supabase = await createServiceClient();
+
+  const { error } = await supabase
+    .from('processing_temp')
+    .delete()
+    .eq('document_id', documentId);
+
+  if (error) {
+    console.error(`Failed to cleanup temp data: ${error.message}`);
+    // Don't throw - cleanup is non-critical
+  } else {
+    console.log(
+      `[TempStorage] Cleaned up temp data for document ${documentId}`
+    );
+  }
 }
