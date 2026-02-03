@@ -7,7 +7,7 @@ interface DashboardHeaderProps {
   userName?: string;
 }
 
-export function DashboardHeader({ userName = 'User' }: DashboardHeaderProps) {
+export function DashboardHeader({ userName }: DashboardHeaderProps) {
   return (
     <header className="h-16 border-b border-border bg-card px-6 flex items-center justify-between">
       {/* Search */}
@@ -32,12 +32,9 @@ export function DashboardHeader({ userName = 'User' }: DashboardHeaderProps) {
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-full bg-accent/10 flex items-center justify-center">
             <span className="text-sm font-medium text-accent">
-              {userName.charAt(0).toUpperCase()}
+              {userName?.charAt(0).toUpperCase()}
             </span>
           </div>
-          <span className="text-sm font-medium text-foreground hidden sm:block">
-            {userName}
-          </span>
         </div>
       </div>
     </header>
