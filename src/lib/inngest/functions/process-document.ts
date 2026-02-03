@@ -11,15 +11,7 @@ import {
   getTempData,
   cleanupTempData,
 } from '@/lib/utils';
-import { PDFParse } from 'pdf-parse';
-
-interface ChunkData {
-  chunks: string[];
-}
-
-interface EmbeddingData {
-  embeddings: number[][];
-}
+import { ChunkData, EmbeddingData } from '@/types';
 
 /**
  * Inngest background function for processing uploaded PDF documents

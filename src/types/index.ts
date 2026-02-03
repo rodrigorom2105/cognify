@@ -47,3 +47,11 @@ export interface UserUsage {
   tokens_consumed: number;
   last_reset_at: string;
 }
+
+export interface ChunkData {
+  chunks: string[];
+}
+
+export interface EmbeddingData {
+  embeddings: number[][];
+}
