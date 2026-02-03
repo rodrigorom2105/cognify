@@ -40,12 +40,17 @@ export default function Header() {
           </nav>
 
           <div className="flex gap-3">
-            <Button variant="outline" className="text-sm bg-transparent">
-              <Link href={'/auth/login'}>Sign In</Link>
-            </Button>
-            <Button className="text-sm">
-              <Link href={'/auth/signup'}>Get Started</Link>
-            </Button>
+            <Link href={'/auth/login'} className="hover:cursor-pointer">
+              <Button
+                variant="outline"
+                className="text-sm bg-transparent cursor-pointer"
+              >
+                Sign In
+              </Button>
+            </Link>
+            <Link href={'/auth/signup'}>
+              <Button className="text-sm cursor-pointer">Get Started</Button>
+            </Link>
           </div>
         </div>
       </div>
