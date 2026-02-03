@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Document } from '@/types';
@@ -11,20 +11,24 @@ export default function DocumentList({ documents }: { documents: Document[] }) {
   const router = useRouter();
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
 
+  // Memoize processing IDs to avoid unnecessary resubscriptions
+  const processingIdsKey = useMemo(() => {
+    return documents
+      .filter((doc) => doc.status === 'processing')
+      .map((doc) => doc.id)
+      .sort()
+      .join(',');
+  }, [documents]);
+
   // Subscribe to real-time document changes ONLY for processing documents
   useEffect(() => {
-    // Get currently processing documents
-    const processingDocs = documents.filter(
-      (doc) => doc.status === 'processing'
-    );
-
     // Don't create subscription if no documents are processing
-    if (processingDocs.length === 0) {
+    if (!processingIdsKey) {
       console.log('No processing documents - skipping real-time subscription');
       return;
     }
 
-    const processingIds = processingDocs.map((doc) => doc.id);
+    const processingIds = processingIdsKey.split(',');
     console.log(
       `Creating real-time subscription for ${processingIds.length} processing documents:`,
       processingIds
@@ -32,9 +36,12 @@ export default function DocumentList({ documents }: { documents: Document[] }) {
 
     const supabase = createClient();
 
+    // Use unique channel name to avoid collisions
+    const channelName = `document-changes-${Date.now()}`;
+
     // Subscribe to document table changes with filters
     const channel = supabase
-      .channel('document-changes')
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
@@ -42,7 +49,7 @@ export default function DocumentList({ documents }: { documents: Document[] }) {
           schema: 'public',
           table: 'documents',
           // Filter to only documents we care about
-          filter: `id=in.(${processingIds.join(',')})`,
+          filter: `id=in.(${processingIdsKey})`,
         },
         (payload) => {
           console.log('Processing document status changed:', payload);
@@ -71,7 +78,7 @@ export default function DocumentList({ documents }: { documents: Document[] }) {
       console.log('Cleaning up real-time subscription');
       supabase.removeChannel(channel);
     };
-  }, [documents]);
+  }, [processingIdsKey, router]);
 
   const handleDelete = async (documentId: string, filename: string) => {
     if (!confirm(`Are you sure you want to delete "${filename}"?`)) {
