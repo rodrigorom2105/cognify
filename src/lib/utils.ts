@@ -1,5 +1,4 @@
 import { clsx, type ClassValue } from 'clsx';
-import { PDFParse } from 'pdf-parse';
 import { twMerge } from 'tailwind-merge';
 import { createServiceClient } from '@/lib/supabase/service';
 
@@ -209,6 +208,8 @@ export async function extractPDFText(
   signedUrl: string
 ): Promise<PDFTextResult> {
   console.log('[Step 1] Extracting text from PDF');
+  // Lazy-load parser to keep PDF runtime dependencies out of unrelated routes.
+  const { PDFParse } = await import('pdf-parse');
   // Initialize PDFParse with URL (v2 API)
   const parser = new PDFParse({ url: signedUrl });
   try {
