@@ -3,8 +3,14 @@ import { FileText, MessageSquare, Zap } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { getCurrentUser } from '@/lib/actions/auth';
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const user = await getCurrentUser();
+  const userName = user
+    ? `${user.name} ${user.last_name}`.trim() || user.email
+    : 'User';
+
   // Mock data - replace with real data from your backend
   const documentsUploaded = 0;
   const queriesMade = 0;
@@ -15,7 +21,7 @@ export default function DashboardPage() {
       {/* Welcome Section */}
       <div>
         <h1 className="text-3xl font-bold text-foreground">Welcome back!</h1>
-        <p className="text-muted-foreground mt-1">John Doe</p>
+        <p className="text-muted-foreground mt-1">{userName}</p>
       </div>
 
       {/* Stats Grid */}

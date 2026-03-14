@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import UploadZone from '@/components/documents/upload-zone';
 import DocumentList from '@/components/documents/document-list';
+import { getUserDocuments } from '@/lib/actions/documents';
 
 export default async function DocumentsPage() {
   const supabase = await createClient();
@@ -12,13 +13,10 @@ export default async function DocumentsPage() {
     return <div>Not authenticated</div>; // Shouldn't happen (middleware protects)
   }
 
-  const { data: documents, error } = await supabase
-    .from('documents')
-    .select('*')
-    .order('created_at', { ascending: false });
+  const { documents, error } = await getUserDocuments();
 
   if (error) {
-    return <div>Error loading documents: {error.message}</div>;
+    return <div>Error loading documents: {error}</div>;
   }
 
   return (
@@ -41,9 +39,7 @@ export default async function DocumentsPage() {
       ) : (
         <div className="text-center py-12">
           <p className="text-lg">No documents yet</p>
-          <p className="text-sm mt-2">
-            Upload your first PDF to get started
-          </p>
+          <p className="text-sm mt-2">Upload your first PDF to get started</p>
         </div>
       )}
     </div>

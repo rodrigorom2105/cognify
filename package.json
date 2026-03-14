@@ -13,7 +13,8 @@
     "supabase:start": "supabase start",
     "supabase:stop": "supabase stop",
     "supabase:status": "supabase status",
-    "supabase:reset": "supabase db reset"
+    "supabase:reset": "supabase db reset",
+    "inngest": "npx inngest-cli dev"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

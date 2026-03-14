@@ -50,6 +50,7 @@ export default function UploadZone() {
           } else {
             setError(null);
             setSuccess('Upload successful!');
+            // Server action calls revalidatePath() - no need for router.refresh()
           }
         })
         .finally(() => {
