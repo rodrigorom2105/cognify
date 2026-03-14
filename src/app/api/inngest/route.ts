@@ -11,9 +11,6 @@ import { processDocument } from '@/lib/inngest/functions/process-document';
  * 3. Provides the Inngest UI for debugging (in development)
  *
  */
-
-export const maxDuration = 300;
-
 export const { GET, POST, PUT } = serve({
   client: inngest,
   functions: [processDocument],
