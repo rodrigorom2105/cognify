@@ -14,7 +14,8 @@
     "supabase:stop": "supabase stop",
     "supabase:status": "supabase status",
     "supabase:reset": "supabase db reset",
-    "inngest": "npx inngest-cli dev"
+    "inngest": "npx inngest-cli dev",
+    "eval:recall": "node scripts/eval-recall.mjs --eval eval/recall/eval-set.small.json --k 5"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

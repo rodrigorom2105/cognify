@@ -6,6 +6,91 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+export interface ChunkingOptions {
+  chunkSize?: number;
+  overlap?: number;
+  minChunkSize?: number;
+}
+
+export const DEFAULT_CHUNKING_CONFIG: Required<ChunkingOptions> = {
+  chunkSize: 1500,
+  overlap: 300,
+  minChunkSize: 350,
+};
+
+/**
+ * Normalize extracted PDF text to reduce embedding noise.
+ */
+export function normalizeExtractedText(text: string): string {
+  if (!text) return '';
+
+  const normalized = text
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    // Re-join hyphenated words split by line breaks.
+    .replace(/([A-Za-zÀ-ÖØ-öø-ÿ])-\n([A-Za-zÀ-ÖØ-öø-ÿ])/g, '$1$2')
+    .replace(/[\uFB00]/g, 'ff')
+    .replace(/[\uFB01]/g, 'fi')
+    .replace(/[\uFB02]/g, 'fl')
+    .replace(/[\uFB03]/g, 'ffi')
+    .replace(/[\uFB04]/g, 'ffl')
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u2013\u2014]/g, '-')
+    .replace(/\u2026/g, '...')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .split('\n')
+    .map((line) => line.trim())
+    .join('\n')
+    .trim();
+
+  return stripLikelyPdfBoilerplate(normalized);
+}
+
+function stripLikelyPdfBoilerplate(text: string): string {
+  const lines = text.split('\n');
+  if (lines.length < 20) {
+    return text;
+  }
+
+  const lineFrequency = new Map<string, number>();
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    lineFrequency.set(line, (lineFrequency.get(line) ?? 0) + 1);
+  }
+
+  const shouldDropRepeatedLine = (line: string) => {
+    const count = lineFrequency.get(line) ?? 0;
+    if (count < 3) return false;
+    if (line.length > 80) return false;
+    // Keep likely section titles and list content.
+    if (/[:;,.!?]$/.test(line)) return false;
+    if (/^\d+[.)]\s+/.test(line)) return false;
+    return true;
+  };
+
+  const shouldDropPageNumberLine = (line: string) => {
+    // Common page markers: "Page 2", "2/10", "- 2 -", or standalone short digits.
+    return (
+      /^(page\s+)?\d+$/i.test(line) ||
+      /^\d+\s*\/\s*\d+$/i.test(line) ||
+      /^[-–—]?\s*\d+\s*[-–—]?$/.test(line)
+    );
+  };
+
+  const filtered = lines.filter((rawLine) => {
+    const line = rawLine.trim();
+    if (!line) return false;
+    if (shouldDropPageNumberLine(line)) return false;
+    if (shouldDropRepeatedLine(line)) return false;
+    return true;
+  });
+
+  return filtered.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
 /**
  * Split text into chunks with overlap for better context preservation
  *
@@ -15,18 +100,36 @@ export function cn(...inputs: ClassValue[]) {
  * 3. Add overlap from previous chunk for context
  *
  * @param text - Full text to chunk
- * @param chunkSize - Target size for each chunk in characters (default: 1000)
- * @param overlap - Number of overlapping characters between chunks (default: 200)
+ * @param chunkSize - Target size for each chunk in characters (default: 1500)
+ * @param overlap - Number of overlapping characters between chunks (default: 300)
  * @returns Array of text chunks
  */
 export function chunkText(
   text: string,
-  chunkSize: number = 1000,
-  overlap: number = 200
+  optionsOrChunkSize: ChunkingOptions | number = DEFAULT_CHUNKING_CONFIG.chunkSize,
+  overlapArg: number = DEFAULT_CHUNKING_CONFIG.overlap
 ): string[] {
   if (!text || text.trim().length === 0) {
     return [];
   }
+
+  const options: Required<ChunkingOptions> =
+    typeof optionsOrChunkSize === 'number'
+      ? {
+          chunkSize: optionsOrChunkSize,
+          overlap: overlapArg,
+          minChunkSize: DEFAULT_CHUNKING_CONFIG.minChunkSize,
+        }
+      : {
+          chunkSize:
+            optionsOrChunkSize.chunkSize ?? DEFAULT_CHUNKING_CONFIG.chunkSize,
+          overlap: optionsOrChunkSize.overlap ?? DEFAULT_CHUNKING_CONFIG.overlap,
+          minChunkSize:
+            optionsOrChunkSize.minChunkSize ??
+            DEFAULT_CHUNKING_CONFIG.minChunkSize,
+        };
+
+  const { chunkSize, overlap, minChunkSize } = options;
 
   console.log('[Step 1] Chunking text');
 
@@ -90,7 +193,44 @@ export function chunkText(
     chunks.push(currentChunk);
   }
 
-  return chunks.filter((chunk) => chunk.trim().length > 0);
+  const cleanedChunks = chunks.filter((chunk) => chunk.trim().length > 0);
+
+  if (minChunkSize <= 0) {
+    return cleanedChunks;
+  }
+
+  return mergeSmallChunks(cleanedChunks, minChunkSize);
+}
+
+function mergeSmallChunks(chunks: string[], minChunkSize: number): string[] {
+  if (chunks.length <= 1) {
+    return chunks;
+  }
+
+  const merged: string[] = [];
+
+  for (const chunk of chunks) {
+    if (merged.length === 0) {
+      merged.push(chunk);
+      continue;
+    }
+
+    if (chunk.length < minChunkSize) {
+      merged[merged.length - 1] = `${merged[merged.length - 1]}\n\n${chunk}`;
+      continue;
+    }
+
+    merged.push(chunk);
+  }
+
+  if (merged.length > 1 && merged[merged.length - 1].length < minChunkSize) {
+    const tail = merged.pop();
+    if (tail) {
+      merged[merged.length - 1] = `${merged[merged.length - 1]}\n\n${tail}`;
+    }
+  }
+
+  return merged;
 }
 
 /**

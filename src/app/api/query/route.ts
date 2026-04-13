@@ -1,7 +1,6 @@
 import { streamRAGAnswer } from '@/lib/openai/chat';
 import { generateQueryEmbedding } from '@/lib/openai/embeddings';
 import { createClient } from '@/lib/supabase/server';
-import { read } from 'fs';
 import { NextRequest, NextResponse } from 'next/server';
 
 export const maxDuration = 60;
@@ -53,13 +52,13 @@ export async function POST(request: NextRequest) {
     // 1. Embed the query
     const queryEmbedding = await generateQueryEmbedding(query);
 
-    // 2. Vector similarity search - top 5 most relevant chunks
+    // 2. Vector similarity search - top 8 most relevant chunks
     const { data: chunks, error: searchError } = await supabase.rpc(
       'match_document_chunks',
       {
         query_embedding: queryEmbedding,
         match_document_id: documentId,
-        match_count: 5,
+        match_count: 8,
       }
     );
 

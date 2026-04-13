@@ -1,7 +1,7 @@
-import { openai } from "./client";
+import { openai } from './client';
 
 export interface ChatMessage {
-  role: "system" | "user" | "assistant";
+  role: 'system' | 'user' | 'assistant';
   content: string;
 }
 
@@ -20,9 +20,9 @@ export interface RAGContext {
 function buildSystemPrompt(context: RAGContext): string {
   const chunksText = context.chunks.map(
     (chunk, index) =>
-      `[Source ${index + 1}] (chunk ${chunk.chunk_index}, relevance: ${(chunk.similarity * 100).toFixed(1)}%)\n${chunk.content}`
+      `[Source ${index + 1}] (chunk ${chunk.chunk_index}, semantic score: ${chunk.similarity.toFixed(3)})\n${chunk.content}`
   );
-  
+
   return `You are a helpful assistant that answers questions based strictly on the provided document context.
     Document: "${context.documentName}"
 
@@ -44,8 +44,8 @@ export async function streamRAGAnswer(
   context: RAGContext
 ): Promise<{ stream: ReadableStream; tokenUsed: number }> {
   const messages: ChatMessage[] = [
-    {role: "system", content: buildSystemPrompt(context)},
-    {role: "user", content: query}
+    { role: 'system', content: buildSystemPrompt(context) },
+    { role: 'user', content: query },
   ];
 
   let tokenUsed = 0;
@@ -54,7 +54,7 @@ export async function streamRAGAnswer(
     async start(controller) {
       try {
         const completion = await openai.chat.completions.create({
-          model: "gpt-4o-mini",
+          model: 'gpt-4o-mini',
           messages,
           stream: true,
           temperature: 0.3,
@@ -74,11 +74,10 @@ export async function streamRAGAnswer(
         }
 
         controller.close();
-      }
-      catch (error) {
+      } catch (error) {
         controller.error(error);
       }
-    }
+    },
   });
 
   return { stream, tokenUsed };

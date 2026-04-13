@@ -17,15 +17,22 @@ interface SourceCitationsProps {
 
 export function SourceCitations({ chunks }: SourceCitationsProps) {
   const [expanded, setExpanded] = useState(false);
-  
+
   const visibleChunks = expanded ? chunks : chunks.slice(0, 2);
 
   const getSimilarityColor = (similarity: number) => {
-    if (similarity >= 0.85)
+    // Calibrated for cosine similarity in document RAG retrieval.
+    if (similarity >= 0.55)
       return 'bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20';
-    if (similarity >= 0.7)
+    if (similarity >= 0.35)
       return 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border-yellow-500/20';
     return 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20';
+  };
+
+  const getSimilarityLabel = (similarity: number) => {
+    if (similarity >= 0.55) return 'Strong';
+    if (similarity >= 0.35) return 'Relevant';
+    return 'Weak';
   };
 
   return (
@@ -38,6 +45,9 @@ export function SourceCitations({ chunks }: SourceCitationsProps) {
         <Badge variant="secondary" className="text-xs">
           {chunks.length} chunk{chunks.length > 1 ? 's' : ''}
         </Badge>
+        <span className="text-xs text-muted-foreground">
+          Typical useful range: 0.25 to 0.60
+        </span>
       </div>
 
       <div className="space-y-2">
@@ -53,7 +63,8 @@ export function SourceCitations({ chunks }: SourceCitationsProps) {
               <span
                 className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${getSimilarityColor(chunk.similarity)}`}
               >
-                {(chunk.similarity * 100).toFixed(1)}% match
+                {getSimilarityLabel(chunk.similarity)} (
+                {chunk.similarity.toFixed(3)})
               </span>
             </div>
             <p className="text-sm text-muted-foreground leading-relaxed">

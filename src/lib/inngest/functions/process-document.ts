@@ -3,8 +3,10 @@ import { createServiceClient } from '@/lib/supabase/service';
 import { generateEmbeddingsInBatches } from '@/lib/openai/embeddings';
 import {
   chunkText,
+  DEFAULT_CHUNKING_CONFIG,
   getChunkingStats,
   extractPDFText,
+  normalizeExtractedText,
   insertChunksInBatches,
   updateDocumentStatus,
   storeTempData,
@@ -21,7 +23,7 @@ import { ChunkData, EmbeddingData } from '@/types';
  * Steps:
  * 1. Download PDF from Supabase Storage
  * 2. Extract text using pdf-parse
- * 3. Chunk text into ~1000 character pieces with overlap
+ * 3. Chunk text using tuned config (1500 size / 300 overlap / 350 min)
  * 4. Generate embeddings for each chunk (OpenAI)
  * 5. Store chunks + embeddings in pgvector
  * 6. Update document status to 'ready'
@@ -62,11 +64,16 @@ export const processDocument = inngest.createFunction(
             throw new Error('No signed URL received from storage');
           }
           const text = await extractPDFText(data.signedUrl);
-          const textChunks = chunkText(text.data, 1000, 200);
+          const cleanedText = normalizeExtractedText(text.data);
+          const chunkingConfig = DEFAULT_CHUNKING_CONFIG;
+          const textChunks = chunkText(cleanedText, chunkingConfig);
 
           // Get stats for logging
           const stats = getChunkingStats(textChunks);
           console.log(`[Step 1] Chunking completed:`, {
+            sourceCharacters: text.data.length,
+            normalizedCharacters: cleanedText.length,
+            chunkingConfig,
             totalChunks: stats.totalChunks,
             avgSize: stats.avgChunkSize,
             minSize: stats.minChunkSize,

@@ -1,0 +1,51 @@
+{
+  "version": "1.0",
+  "cases": [
+    {
+      "id": "case-1",
+      "documentId": "1c60e000-23f3-4c2f-90ca-eb3f42f6abb7",
+      "query": "How does the introduction define artificial intelligence at its core?",
+      "expectedSnippets": [
+        "AI refers to the simulation of human intelligence processes by machines"
+      ],
+      "notes": "Definition from Chapter 1"
+    },
+    {
+      "id": "case-2",
+      "documentId": "1c60e000-23f3-4c2f-90ca-eb3f42f6abb7",
+      "query": "What are the three main types of machine learning listed in Chapter 2?",
+      "expectedSnippets": [
+        "supervised learning, unsupervised learning, and reinforcement learning"
+      ],
+      "notes": "Category list from Chapter 2"
+    },
+    {
+      "id": "case-3",
+      "documentId": "1c60e000-23f3-4c2f-90ca-eb3f42f6abb7",
+      "query": "Which algorithms are used to minimize neural network prediction errors during training?",
+      "expectedSnippets": [
+        "using backpropagation and gradient descent algorithms to minimize prediction errors"
+      ],
+      "notes": "Training mechanics from Chapter 3"
+    },
+    {
+      "id": "case-4",
+      "documentId": "1c60e000-23f3-4c2f-90ca-eb3f42f6abb7",
+      "query": "After a user submits a query in RAG, what retrieval steps happen before generation?",
+      "expectedSnippets": [
+        "it is also converted into an embedding",
+        "similarity search to find the most relevant document chunks"
+      ],
+      "notes": "Pipeline steps from Chapter 5"
+    },
+    {
+      "id": "case-5",
+      "documentId": "1c60e000-23f3-4c2f-90ca-eb3f42f6abb7",
+      "query": "What vector size does text-embedding-3-small produce according to the document?",
+      "expectedSnippets": [
+        "produce 1536-dimensional vectors that capture nuanced semantic relationships"
+      ],
+      "notes": "Embedding details from Chapter 6"
+    }
+  ]
+}
