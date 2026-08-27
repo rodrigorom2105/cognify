@@ -65,3 +65,11 @@ Thumbs.db
 
 # Logs
 TODO.txt
+
+# Lockfiles: this project uses pnpm only
+package-lock.json
+yarn.lock
+bun.lockb
+
+# Personal notes (not part of the project)
+CV-COGNIFY.md

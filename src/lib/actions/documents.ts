@@ -103,10 +103,12 @@ export async function uploadDocument(formData: FormData) {
         throw new Error(`Failed to update user usage: ${usageError.message}`);
       }
 
-      // Trigger Inngest function to process document
-
-      await inngest
-        .send({
+      // Trigger Inngest function to process document.
+      // If the event never reaches Inngest the document would sit in
+      // 'processing' forever, so mark it failed and surface the reason
+      // instead of reporting a successful upload.
+      try {
+        await inngest.send({
           name: 'document.uploaded',
           data: {
             documentId: document.id,
@@ -114,11 +116,33 @@ export async function uploadDocument(formData: FormData) {
             storagePath: storagePath,
             filename: file.name,
           },
-          // Manage response from inngest if needed (not shown here)
-        })
-        .catch((inngestError) => {
-          console.error('Inngest trigger failed:', inngestError);
         });
+      } catch (inngestError) {
+        console.error('Inngest trigger failed:', inngestError);
+
+        const { error: statusError } = await supabase
+          .from('documents')
+          .update({ status: 'failed' })
+          .eq('id', document.id);
+
+        if (statusError) {
+          console.error(
+            `Failed to mark document ${document.id} as failed: ${statusError.message}`
+          );
+        }
+
+        revalidatePath('/dashboard/documents');
+
+        return {
+          success: false,
+          message: `Upload succeeded but processing could not be started: ${
+            inngestError instanceof Error
+              ? inngestError.message
+              : 'Unknown error'
+          }`,
+          documentId: document.id,
+        };
+      }
 
       console.log(`Document uploaded successfully: ${document.id}`);
 

@@ -62,7 +62,6 @@ export async function generateEmbeddingsInBatches(
 
 /**
  * Generate a single embedding for a query string
- * Useful for RAG query execution
  * 
  * @param text - Single text string to embed
  * @returns Single embedding vector

@@ -1,0 +1,42 @@
+{
+  "k": 5,
+  "evaluatedAt": "2026-04-13T15:00:39.036Z",
+  "results": [
+    {
+      "config": "cfg-1500-300",
+      "chunkSize": 1500,
+      "overlap": 300,
+      "minChunkSize": 350,
+      "cases": 2,
+      "recallAtK": 1,
+      "hitRateAtK": 1
+    },
+    {
+      "config": "cfg-1800-360",
+      "chunkSize": 1800,
+      "overlap": 360,
+      "minChunkSize": 350,
+      "cases": 2,
+      "recallAtK": 1,
+      "hitRateAtK": 1
+    },
+    {
+      "config": "baseline-1000-200",
+      "chunkSize": 1000,
+      "overlap": 200,
+      "minChunkSize": 0,
+      "cases": 2,
+      "recallAtK": 0.5,
+      "hitRateAtK": 0.5
+    },
+    {
+      "config": "cfg-1200-240",
+      "chunkSize": 1200,
+      "overlap": 240,
+      "minChunkSize": 200,
+      "cases": 2,
+      "recallAtK": 0.5,
+      "hitRateAtK": 0.5
+    }
+  ]
+}

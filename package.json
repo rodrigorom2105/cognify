@@ -2,6 +2,7 @@
   "name": "cognify",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@10.34.5",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -14,7 +15,8 @@
     "supabase:stop": "supabase stop",
     "supabase:status": "supabase status",
     "supabase:reset": "supabase db reset",
-    "inngest": "npx inngest-cli dev"
+    "inngest": "pnpm dlx inngest-cli dev",
+    "eval:recall": "node scripts/eval-recall.mjs --eval eval/recall/eval-set.small.json --k 5"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -33,23 +35,22 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
-    "inngest": "^3.49.3",
+    "inngest": "^3.54.2",
     "lucide-react": "^0.563.0",
     "next": "16.1.4",
     "next-themes": "^0.4.6",
     "openai": "^6.16.0",
-    "pdf-parse": "^2.4.5",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-hook-form": "^7.71.1",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.4.0",
+    "unpdf": "^1.8.1",
     "zod": "^4.3.6"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
-    "@types/pdf-parse": "^1.1.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
