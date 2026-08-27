@@ -2,6 +2,7 @@
   "name": "cognify",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@10.34.5",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -14,7 +15,7 @@
     "supabase:stop": "supabase stop",
     "supabase:status": "supabase status",
     "supabase:reset": "supabase db reset",
-    "inngest": "npx inngest-cli dev",
+    "inngest": "pnpm dlx inngest-cli dev",
     "eval:recall": "node scripts/eval-recall.mjs --eval eval/recall/eval-set.small.json --k 5"
   },
   "dependencies": {
