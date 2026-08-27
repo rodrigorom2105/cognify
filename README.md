@@ -20,7 +20,7 @@ Documents are processed in the background: the text is extracted, chunked, embed
 
 **Ingestion** — `uploadDocument` (`src/lib/actions/documents.ts`) validates the file, stores it in Supabase Storage, inserts a `documents` row with status `processing`, and emits a `document.uploaded` event. The Inngest function `process-document` then runs three steps:
 
-1. **Extract and chunk** — pull text with `pdf-parse`, normalize it, split into chunks of 1500 characters with 300 overlap (350 minimum).
+1. **Extract and chunk** — pull text with `unpdf`, normalize it, split into chunks of 1500 characters with 300 overlap (350 minimum).
 2. **Embed** — generate embeddings in batches of 100.
 3. **Store** — write chunks and vectors to `document_chunks`, then set the document to `ready`.
 

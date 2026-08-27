@@ -349,30 +349,33 @@ export async function extractPDFText(
 ): Promise<PDFTextResult> {
   console.log('[Step 1] Extracting text from PDF');
   // Lazy-load parser to keep PDF runtime dependencies out of unrelated routes.
-  const { PDFParse } = await import('pdf-parse');
-  // Initialize PDFParse with URL (v2 API)
-  const parser = new PDFParse({ url: signedUrl });
-  try {
-    // Use getText() method to extract text and getInfo() for metadata
-    const [textResult, infoResult] = await Promise.all([
-      parser.getText(),
-      parser.getInfo(),
-    ]);
+  // unpdf ships a serverless build of pdf.js with no native dependencies and
+  // no separate worker file, both of which broke under Next's serverless
+  // bundling: pdf.js' Node path pulled in @napi-rs/canvas purely to define
+  // globalThis.DOMMatrix for rendering code that text extraction never runs.
+  const { extractText, getDocumentProxy } = await import('unpdf');
 
-    if (!textResult.text || textResult.text.trim().length === 0) {
-      throw new Error(
-        'No text found in PDF. Document may be scanned or image-based.'
-      );
-    }
-
-    console.log(
-      `[Step 1] Extracted ${textResult.text.length} characters from ${infoResult.total} pages`
+  const response = await fetch(signedUrl);
+  if (!response.ok) {
+    throw new Error(
+      `Failed to download PDF: ${response.status} ${response.statusText}`
     );
-    return { data: textResult.text.trim(), pages: infoResult.total };
-  } finally {
-    // Always destroy parser to free memory (v2 requirement)
-    await parser.destroy();
   }
+  const buffer = await response.arrayBuffer();
+
+  const pdf = await getDocumentProxy(new Uint8Array(buffer));
+  const { totalPages, text } = await extractText(pdf, { mergePages: true });
+
+  if (!text || text.trim().length === 0) {
+    throw new Error(
+      'No text found in PDF. Document may be scanned or image-based.'
+    );
+  }
+
+  console.log(
+    `[Step 1] Extracted ${text.length} characters from ${totalPages} pages`
+  );
+  return { data: text.trim(), pages: totalPages };
 }
 
 export async function insertChunksInBatches(

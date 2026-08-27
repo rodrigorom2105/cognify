@@ -3,7 +3,7 @@
 import fs from 'node:fs/promises';
 import OpenAI from 'openai';
 import { createClient } from '@supabase/supabase-js';
-import { PDFParse } from 'pdf-parse';
+import { extractText, getDocumentProxy } from 'unpdf';
 
 const EMBEDDING_MODEL = 'text-embedding-3-small';
 const DOCUMENTS_BUCKET = process.env.DOCUMENTS_BUCKET || 'documents';
@@ -383,16 +383,18 @@ async function fetchPdfText(supabase, documentId) {
     );
   }
 
-  const parser = new PDFParse({ url: signedUrlData.signedUrl });
-  try {
-    const textResult = await parser.getText();
-    if (!textResult?.text?.trim()) {
-      throw new Error(`No text extracted from PDF for document ${documentId}`);
-    }
-    return textResult.text.trim();
-  } finally {
-    await parser.destroy();
+  const response = await fetch(signedUrlData.signedUrl);
+  if (!response.ok) {
+    throw new Error(
+      `Failed to download PDF for document ${documentId}: ${response.status}`
+    );
   }
+  const pdf = await getDocumentProxy(new Uint8Array(await response.arrayBuffer()));
+  const { text } = await extractText(pdf, { mergePages: true });
+  if (!text?.trim()) {
+    throw new Error(`No text extracted from PDF for document ${documentId}`);
+  }
+  return text.trim();
 }
 
 async function main() {

@@ -22,7 +22,7 @@ import { ChunkData, EmbeddingData } from '@/types';
  *
  * Steps:
  * 1. Download PDF from Supabase Storage
- * 2. Extract text using pdf-parse
+ * 2. Extract text using unpdf
  * 3. Chunk text using tuned config (1500 size / 300 overlap / 350 min)
  * 4. Generate embeddings for each chunk (OpenAI)
  * 5. Store chunks + embeddings in pgvector
