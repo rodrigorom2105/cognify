@@ -50,7 +50,8 @@ export async function POST(request: NextRequest) {
     }
 
     // 1. Embed the query
-    const queryEmbedding = await generateQueryEmbedding(query);
+    const { embedding: queryEmbedding, tokens: embeddingTokens } =
+      await generateQueryEmbedding(query);
 
     // 2. Vector similarity search - top 8 most relevant chunks
     const { data: chunks, error: searchError } = await supabase.rpc(
@@ -123,6 +124,7 @@ export async function POST(request: NextRequest) {
           tokens_used: totalTokens,
           prompt_tokens: promptTokens,
           completion_tokens: completionTokens,
+          embedding_tokens: embeddingTokens,
         });
 
         if (insertError) {
@@ -139,7 +141,7 @@ export async function POST(request: NextRequest) {
         }
 
         console.log(
-          `Query recorded: document=${documentId} prompt=${promptTokens} completion=${completionTokens} total=${totalTokens}`
+          `Query recorded: document=${documentId} prompt=${promptTokens} completion=${completionTokens} total=${totalTokens} embedding=${embeddingTokens}`
         );
       } catch (error) {
         console.error('Failed to record query:', error);

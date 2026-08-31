@@ -1,16 +1,29 @@
 import { openai } from './client';
 
 /**
- * Generate embeddings for an array of text chunks
+ * Embeddings plus the tokens OpenAI billed for producing them.
+ *
+ * Embedding tokens are priced separately from chat tokens, so they are
+ * reported on their own rather than folded into a single total.
+ */
+export interface EmbeddingResult {
+  embeddings: number[][];
+  tokens: number;
+}
+
+/**
+ * Generate embeddings for an array of text chunks, reporting token usage.
  * Uses OpenAI's text-embedding-3-small model (1536 dimensions)
  *
  * @param texts - Array of text strings to embed
- * @returns Array of embedding vectors (number[][])
+ * @returns Embedding vectors and the tokens billed for the request
  * @throws Error if OpenAI API fails
  */
-export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
+export async function generateEmbeddingsWithUsage(
+  texts: string[]
+): Promise<EmbeddingResult> {
   if (texts.length === 0) {
-    return [];
+    return { embeddings: [], tokens: 0 };
   }
 
   try {
@@ -20,13 +33,28 @@ export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
       encoding_format: 'float',
     });
 
-    return response.data.map((item) => item.embedding);
+    return {
+      embeddings: response.data.map((item) => item.embedding),
+      tokens: response.usage.total_tokens,
+    };
   } catch (error) {
     console.error('OpenAI Embedding Error:', error);
     throw new Error(
       `Failed to generate embeddings: ${error instanceof Error ? error.message : 'Unknown error'}`
     );
   }
+}
+
+/**
+ * Generate embeddings for an array of text chunks, discarding usage.
+ *
+ * @param texts - Array of text strings to embed
+ * @returns Array of embedding vectors (number[][])
+ * @throws Error if OpenAI API fails
+ */
+export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
+  const { embeddings } = await generateEmbeddingsWithUsage(texts);
+  return embeddings;
 }
 
 /**
@@ -62,11 +90,13 @@ export async function generateEmbeddingsInBatches(
 
 /**
  * Generate a single embedding for a query string
- * 
+ *
  * @param text - Single text string to embed
- * @returns Single embedding vector
+ * @returns The embedding vector and the tokens billed for it
  */
-export async function generateQueryEmbedding(text: string): Promise<number[]> {
-  const embeddings = await generateEmbeddings([text]);
-  return embeddings[0];
+export async function generateQueryEmbedding(
+  text: string
+): Promise<{ embedding: number[]; tokens: number }> {
+  const { embeddings, tokens } = await generateEmbeddingsWithUsage([text]);
+  return { embedding: embeddings[0], tokens };
 }

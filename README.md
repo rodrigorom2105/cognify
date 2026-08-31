@@ -141,22 +141,33 @@ Treat the remote database as the source of truth until a baseline is captured (`
 
 ### Token accounting
 
-`queries` records `prompt_tokens`, `completion_tokens`, and their sum in `tokens_used`. The split is stored separately because input and output tokens are billed at different rates, so a total alone cannot produce a cost figure.
+Each row in `queries` records four token counts, kept separate because they are billed at different rates — summing them into one number would make any cost calculation wrong.
 
-`NULL` in those columns means **not measured**, which distinguishes rows written before token metering worked from a genuine zero. Filter them out when computing averages:
+| Column | Model | What it covers |
+| --- | --- | --- |
+| `prompt_tokens` | `gpt-4o-mini` | System prompt + the 8 retrieved chunks + the question |
+| `completion_tokens` | `gpt-4o-mini` | The generated answer |
+| `tokens_used` | `gpt-4o-mini` | `prompt_tokens + completion_tokens` |
+| `embedding_tokens` | `text-embedding-3-small` | Embedding the question for retrieval |
+
+`prompt_tokens` is dominated by the retrieved context, not the question: 8 chunks run roughly 1,500–3,700 tokens depending on the document, while a typical question is ~10. Chunk size and the `match_count: 8` in `src/app/api/query/route.ts` are what move cost per query.
+
+`NULL` means **not measured**, which distinguishes rows written before token metering worked from a genuine zero. Filter them out when computing averages:
 
 ```sql
 select
-  count(*)                                          as queries,
-  round(avg(prompt_tokens))                         as avg_input,
-  round(avg(completion_tokens))                     as avg_output,
-  sum(prompt_tokens)     / 1e6 * 0.15
-    + sum(completion_tokens) / 1e6 * 0.60           as approx_usd
+  count(*)                                             as queries,
+  round(avg(prompt_tokens))                            as avg_input,
+  round(avg(completion_tokens))                        as avg_output,
+  round(avg(embedding_tokens))                         as avg_embed,
+  round((sum(prompt_tokens)     / 1e6 * 0.15
+       + sum(completion_tokens) / 1e6 * 0.60)::numeric, 6) as chat_usd,
+  round((sum(embedding_tokens)  / 1e6 * 0.02)::numeric, 8) as embed_usd
 from queries
 where prompt_tokens is not null;
 ```
 
-Embedding tokens are **not** metered — neither the per-query embedding nor the ingestion embeddings — so this covers inference cost only.
+**Ingestion embeddings are still unmetered.** Embedding a document's chunks at upload time belongs to the document, not to any query, and would need a column on `documents`. It is a one-off cost per upload and small next to inference — the 719 chunks indexed so far are roughly 320k embedding tokens, about $0.006 in total — but it is not counted anywhere.
 
 ## Deploying
 
