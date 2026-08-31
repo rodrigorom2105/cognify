@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
     const { data: chunks, error: searchError } = await supabase.rpc(
       'match_document_chunks',
       {
-        query_embedding: queryEmbedding,
+        query_embedding: JSON.stringify(queryEmbedding),
         match_document_id: documentId,
         match_count: 8,
       }

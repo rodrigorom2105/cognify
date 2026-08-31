@@ -86,7 +86,7 @@ export default function DocumentList({ documents }: { documents: Document[] }) {
           debouncedRefresh();
         }
       )
-      .on(
+      .on<Document>(
         'postgres_changes',
         {
           event: 'UPDATE',
@@ -96,8 +96,8 @@ export default function DocumentList({ documents }: { documents: Document[] }) {
         },
         (payload) => {
           if (!mounted) return;
-          const updatedDoc = payload.new as Document;
-          const oldDoc = payload.old as Partial<Document>;
+          const updatedDoc = payload.new;
+          const oldDoc = payload.old;
 
           console.log(
             'Document updated:',

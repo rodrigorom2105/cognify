@@ -13,9 +13,7 @@ export default async function AskPage() {
   // Fetch ready documents
   const { data: documents } = await supabase
     .from('documents')
-    .select(
-      'id, filename, status, file_size_bytes, page_count, created_at, updated_at, storage_path, user_id'
-    )
+    .select('*')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false });
 
