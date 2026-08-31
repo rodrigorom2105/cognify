@@ -1,6 +1,8 @@
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { createServiceClient } from '@/lib/supabase/service';
+import type { Json, TablesUpdate } from '@/lib/supabase/database.types';
+import type { DocumentStatus } from '@/types';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -389,7 +391,9 @@ export async function insertChunksInBatches(
   const chunksToInsert = chunks.map((chunk, index) => ({
     document_id: documentId,
     content: chunk,
-    embedding: embeddings[index],
+    // `vector` is exposed as text by PostgREST; a JSON array literal is
+    // what Postgres parses back into a vector.
+    embedding: JSON.stringify(embeddings[index]),
     chunk_index: index,
     metadata: {
       length: chunk.length,
@@ -425,7 +429,7 @@ export async function insertChunksInBatches(
 
 export async function updateDocumentStatus(
   documentId: string,
-  status: 'ready' | 'failed',
+  status: Extract<DocumentStatus, 'ready' | 'failed'>,
   pageCount?: number,
   metrics?: { embeddingTokens?: number }
 ): Promise<void> {
@@ -434,11 +438,7 @@ export async function updateDocumentStatus(
   // Only send fields that were actually supplied, so a partial update cannot
   // null out a column an earlier step already wrote. Every caller currently
   // passes a page count, but the metrics are genuinely optional.
-  const update: {
-    status: 'ready' | 'failed';
-    page_count?: number;
-    embedding_tokens?: number;
-  } = { status };
+  const update: TablesUpdate<'documents'> = { status };
 
   if (pageCount !== undefined) {
     update.page_count = pageCount;
@@ -465,7 +465,7 @@ export async function updateDocumentStatus(
 export async function storeTempData(
   documentId: string,
   stepName: string,
-  data: any
+  data: Json
 ): Promise<void> {
   const supabase = await createServiceClient();
 

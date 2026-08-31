@@ -1,52 +1,25 @@
-// Shared types across the application
+// Shared types across the application.
+//
+// Every row shape here is derived from `src/lib/supabase/database.types.ts`,
+// which is generated from the live schema (`pnpm db:types`). Do not re-declare
+// these by hand: a hand-written copy silently drifts from the database, and the
+// Supabase client will happily hand you a row that does not match it.
 
-export interface User {
-  id: string;
-  email: string;
-  name: string;
-  last_name: string;
-  created_at: string;
-}
+import type { Tables } from '@/lib/supabase/database.types';
 
-export interface Document {
-  id: string;
-  user_id: string;
-  filename: string;
-  storage_path: string;
-  status: 'processing' | 'ready' | 'failed';
-  file_size_bytes: number;
-  page_count: number | null;
-  created_at: string;
-  updated_at: string;
-}
+export type Document = Tables<'documents'>;
+export type DocumentChunk = Tables<'document_chunks'>;
+export type Query = Tables<'queries'>;
+export type UserUsage = Tables<'user_usage'>;
 
-export interface DocumentChunk {
-  id: string;
-  document_id: string;
-  content: string;
-  embedding: number[];
-  chunk_index: number;
-  metadata: Record<string, unknown>;
-  created_at: string;
-}
-
-export interface Query {
-  id: string;
-  user_id: string;
-  document_id: string;
-  query_text: string;
-  answer_text: string | null;
-  tokens_used: number;
-  created_at: string;
-}
-
-export interface UserUsage {
-  user_id: string;
-  documents_uploaded: number;
-  queries_made: number;
-  tokens_consumed: number;
-  last_reset_at: string;
-}
+/**
+ * Statuses the application writes to `documents.status`.
+ *
+ * The column is a plain `text` with no check constraint, so the generated row
+ * type is `string`: this union constrains what *we* write, it is not a promise
+ * about what the database may return.
+ */
+export type DocumentStatus = 'processing' | 'ready' | 'failed';
 
 export interface ChunkData {
   chunks: string[];

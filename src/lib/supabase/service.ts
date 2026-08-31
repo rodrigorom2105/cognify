@@ -1,5 +1,7 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 
+import type { Database } from './database.types';
+
 /**
  * Create Supabase client with SERVICE ROLE key for background jobs
  *
@@ -26,7 +28,7 @@ export async function createServiceClient() {
     throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY environment variable');
   }
 
-  return createSupabaseClient(supabaseUrl, supabaseServiceKey, {
+  return createSupabaseClient<Database>(supabaseUrl, supabaseServiceKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,

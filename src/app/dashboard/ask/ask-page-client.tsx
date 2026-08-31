@@ -99,7 +99,10 @@ export function AskPageClient({
         document_id: queryDocumentId,
         query_text: queryText,
         answer_text: fullAnswer,
-        tokens_used: 0,
+        tokens_used: null,
+        prompt_tokens: null,
+        completion_tokens: null,
+        embedding_tokens: null,
         created_at: new Date().toISOString(),
       };
       setQueries((prev) => [newQuery, ...prev]);

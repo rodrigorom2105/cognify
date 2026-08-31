@@ -52,7 +52,7 @@ export function QueryHistory({ queries, onReuse }: QueryHistoryProps) {
                 </p>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {formatDate(query.created_at)}
-                  {query.tokens_used > 0 && (
+                  {(query.tokens_used ?? 0) > 0 && (
                     <span className="ml-2">{query.tokens_used} tokens</span>
                   )}
                 </p>

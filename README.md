@@ -105,6 +105,7 @@ Without the dev server, uploads will store the file and create the row, but noth
 | `pnpm type-check` | `tsc --noEmit` |
 | `pnpm lint` | ESLint, `--max-warnings 0` |
 | `pnpm format` | Prettier over `src/` |
+| `pnpm db:types` | Regenerate `database.types.ts` from the remote schema |
 | `pnpm eval:recall` | Recall@5 chunking evaluation |
 | `pnpm supabase:start` / `:stop` / `:status` / `:reset` | Local Supabase stack |
 
@@ -138,6 +139,23 @@ RLS is enabled with owner-scoped policies (`auth.uid() = user_id`) on the user-f
 **`supabase db reset` does not reproduce this schema.** The database was built by hand in the Supabase dashboard, so `supabase/migrations/` starts partway through its history: it contains only incremental changes applied after that point, with no migration that creates the original tables, policies, functions, or the pgvector index.
 
 Treat the remote database as the source of truth until a baseline is captured (`supabase db dump` against the live project, committed as the first migration). Until then, new changes should still be added as migration files so the gap stops growing.
+
+### Generated types
+
+Every Supabase client is parameterised with the `Database` type from `src/lib/supabase/database.types.ts`, so `.from()`, `.rpc()`, inserts, and updates are checked against the real columns. That file is generated — never edit it by hand:
+
+```bash
+pnpm db:types
+```
+
+Regenerate it after **every** schema change, in the same commit as the migration. Because there is no baseline migration, the generator reads the remote project, not `supabase/migrations/`.
+
+Row shapes are re-exported from `src/types/index.ts` (`Document`, `Query`, `DocumentChunk`, `UserUsage`) — derive from those rather than hand-writing an interface, which silently drifts from the database.
+
+Two consequences worth knowing:
+
+- `documents.status` is plain `text` with no constraint, so its generated type is `string`. The `DocumentStatus` union in `src/types/index.ts` constrains what the app *writes*; it is not a guarantee about what the database returns. Making it a real Postgres enum would push the union into the generated type.
+- pgvector columns and arguments are exposed as `string` by PostgREST, so embeddings are sent as `JSON.stringify(embedding)`. This is the same bytes on the wire as passing the raw array — Postgres parses `[0.1,0.2]` as a vector literal either way.
 
 ### Token accounting
 

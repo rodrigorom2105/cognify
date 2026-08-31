@@ -15,6 +15,7 @@
     "supabase:stop": "supabase stop",
     "supabase:status": "supabase status",
     "supabase:reset": "supabase db reset",
+    "db:types": "node scripts/gen-db-types.mjs",
     "inngest": "pnpm dlx inngest-cli dev",
     "eval:recall": "node scripts/eval-recall.mjs --eval eval/recall/eval-set.small.json --k 5"
   },
