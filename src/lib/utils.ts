@@ -426,16 +426,31 @@ export async function insertChunksInBatches(
 export async function updateDocumentStatus(
   documentId: string,
   status: 'ready' | 'failed',
-  pageCount?: number
+  pageCount?: number,
+  metrics?: { embeddingTokens?: number }
 ): Promise<void> {
   const supabase = await createServiceClient();
 
+  // Only send fields that were actually supplied, so a partial update cannot
+  // null out a column an earlier step already wrote. Every caller currently
+  // passes a page count, but the metrics are genuinely optional.
+  const update: {
+    status: 'ready' | 'failed';
+    page_count?: number;
+    embedding_tokens?: number;
+  } = { status };
+
+  if (pageCount !== undefined) {
+    update.page_count = pageCount;
+  }
+
+  if (metrics?.embeddingTokens !== undefined) {
+    update.embedding_tokens = metrics.embeddingTokens;
+  }
+
   const { error } = await supabase
     .from('documents')
-    .update({
-      status,
-      page_count: pageCount,
-    })
+    .update(update)
     .eq('id', documentId);
 
   if (error) {

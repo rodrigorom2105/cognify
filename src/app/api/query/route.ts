@@ -1,7 +1,7 @@
 import { streamRAGAnswer } from '@/lib/openai/chat';
 import { generateQueryEmbedding } from '@/lib/openai/embeddings';
 import { createClient } from '@/lib/supabase/server';
-import { NextRequest, NextResponse } from 'next/server';
+import { after, NextRequest, NextResponse } from 'next/server';
 
 export const maxDuration = 60;
 
@@ -50,7 +50,8 @@ export async function POST(request: NextRequest) {
     }
 
     // 1. Embed the query
-    const queryEmbedding = await generateQueryEmbedding(query);
+    const { embedding: queryEmbedding, tokens: embeddingTokens } =
+      await generateQueryEmbedding(query);
 
     // 2. Vector similarity search - top 8 most relevant chunks
     const { data: chunks, error: searchError } = await supabase.rpc(
@@ -78,39 +79,74 @@ export async function POST(request: NextRequest) {
     }
 
     // 3. Stream answer
-    const { stream, tokenUsed } = await streamRAGAnswer(query, {
+    const { stream, usage } = await streamRAGAnswer(query, {
       chunks,
       documentName: document.filename,
     });
 
-    // 4. Save query record and update usage in the background
-    const saveQuery = async (answerText: string) => {
-      await supabase.from('queries').insert({
-        user_id: user.id,
-        document_id: documentId,
-        query_text: query,
-        answer_text: answerText,
-        tokens_used: tokenUsed,
-      });
-
-      await supabase.rpc('increment_queries_made', { user_id_input: user.id });
-    };
-
     // Pipe stream + collect full answer for saving
     const [streamForClient, streamForSaving] = stream.tee();
 
-    // Collect answer text for DB save
-    (async () => {
-      const reader = streamForSaving.getReader();
-      const decoder = new TextDecoder();
-      let fullAnswer = '';
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        fullAnswer += decoder.decode(value);
+    // 4. Record the query once the answer has finished streaming.
+    //
+    // This has to run through `after()`. The work depends on the stream being
+    // fully drained, which happens after the response is returned, and a
+    // serverless function is free to freeze the moment the response completes
+    // — a bare floating promise here gets killed mid-insert and the row is
+    // lost with no error anywhere.
+    after(async () => {
+      try {
+        const reader = streamForSaving.getReader();
+        const decoder = new TextDecoder();
+        let fullAnswer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          fullAnswer += decoder.decode(value, { stream: true });
+        }
+        fullAnswer += decoder.decode();
+
+        // Safe to await only now that the stream is drained.
+        const { promptTokens, completionTokens, totalTokens } = await usage;
+
+        if (totalTokens === 0) {
+          console.warn(
+            `No token usage reported for query on document ${documentId}`
+          );
+        }
+
+        const { error: insertError } = await supabase.from('queries').insert({
+          user_id: user.id,
+          document_id: documentId,
+          query_text: query,
+          answer_text: fullAnswer,
+          tokens_used: totalTokens,
+          prompt_tokens: promptTokens,
+          completion_tokens: completionTokens,
+          embedding_tokens: embeddingTokens,
+        });
+
+        if (insertError) {
+          console.error('Failed to record query:', insertError);
+        }
+
+        const { error: usageError } = await supabase.rpc(
+          'increment_queries_made',
+          { user_id_input: user.id }
+        );
+
+        if (usageError) {
+          console.error('Failed to increment query usage:', usageError);
+        }
+
+        console.log(
+          `Query recorded: document=${documentId} prompt=${promptTokens} completion=${completionTokens} total=${totalTokens} embedding=${embeddingTokens}`
+        );
+      } catch (error) {
+        console.error('Failed to record query:', error);
       }
-      await saveQuery(fullAnswer);
-    })();
+    });
 
     // Stream response to client with chunk metada in headers
     return new Response(streamForClient, {

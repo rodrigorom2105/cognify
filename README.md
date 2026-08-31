@@ -133,6 +133,54 @@ The current committed run covers only 2 cases. That is enough to show the 1000/2
 
 RLS is enabled with owner-scoped policies (`auth.uid() = user_id`) on the user-facing tables. Auth session refresh happens in `src/proxy.ts` (Next.js 16 replaced `middleware.ts` with `proxy.ts`).
 
+### Migrations — no baseline
+
+**`supabase db reset` does not reproduce this schema.** The database was built by hand in the Supabase dashboard, so `supabase/migrations/` starts partway through its history: it contains only incremental changes applied after that point, with no migration that creates the original tables, policies, functions, or the pgvector index.
+
+Treat the remote database as the source of truth until a baseline is captured (`supabase db dump` against the live project, committed as the first migration). Until then, new changes should still be added as migration files so the gap stops growing.
+
+### Token accounting
+
+Each row in `queries` records four token counts, kept separate because they are billed at different rates — summing them into one number would make any cost calculation wrong.
+
+| Column | Model | What it covers |
+| --- | --- | --- |
+| `prompt_tokens` | `gpt-4o-mini` | System prompt + the 8 retrieved chunks + the question |
+| `completion_tokens` | `gpt-4o-mini` | The generated answer |
+| `tokens_used` | `gpt-4o-mini` | `prompt_tokens + completion_tokens` |
+| `embedding_tokens` | `text-embedding-3-small` | Embedding the question for retrieval |
+
+`prompt_tokens` is dominated by the retrieved context, not the question: 8 chunks run roughly 1,500–3,700 tokens depending on the document, while a typical question is ~10. Chunk size and the `match_count: 8` in `src/app/api/query/route.ts` are what move cost per query.
+
+`NULL` means **not measured**, which distinguishes rows written before token metering worked from a genuine zero. Filter them out when computing averages:
+
+```sql
+select
+  count(*)                                             as queries,
+  round(avg(prompt_tokens))                            as avg_input,
+  round(avg(completion_tokens))                        as avg_output,
+  round(avg(embedding_tokens))                         as avg_embed,
+  round((sum(prompt_tokens)     / 1e6 * 0.15
+       + sum(completion_tokens) / 1e6 * 0.60)::numeric, 6) as chat_usd,
+  round((sum(embedding_tokens)  / 1e6 * 0.02)::numeric, 8) as embed_usd
+from queries
+where prompt_tokens is not null;
+```
+
+Ingestion is metered separately on `documents.embedding_tokens`: embedding every chunk of an upload is a one-off cost that belongs to the document, not to any question asked about it. Cost across both lifecycles:
+
+```sql
+select
+  (select round((sum(embedding_tokens) / 1e6 * 0.02)::numeric, 6)
+     from documents where embedding_tokens is not null)      as ingest_usd,
+  (select round((sum(prompt_tokens)     / 1e6 * 0.15
+               + sum(completion_tokens) / 1e6 * 0.60
+               + sum(embedding_tokens)  / 1e6 * 0.02)::numeric, 6)
+     from queries where prompt_tokens is not null)           as query_usd;
+```
+
+Rates are `gpt-4o-mini` at $0.15/$0.60 per 1M input/output tokens and `text-embedding-3-small` at $0.02 per 1M. They are hardcoded in the queries above, not in the schema, so check them against current pricing before quoting a figure.
+
 ## Deploying
 
 The app deploys to Vercel. Two things are easy to get wrong:

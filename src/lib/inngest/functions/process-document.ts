@@ -94,17 +94,30 @@ export const processDocument = inngest.createFunction(
       );
 
       // Step 2: Generate Embeddings
-      await step.run('generate-embeddings', async () => {
-        console.log(`[Step 2] Generate embeddings for ${totalChunks} chunks`);
-        const { chunks } = await getTempData<ChunkData>(documentId, 'chunks');
-        const embeddingResults = await generateEmbeddingsInBatches(chunks, 100);
+      const { embeddingTokens } = await step.run(
+        'generate-embeddings',
+        async () => {
+          console.log(`[Step 2] Generate embeddings for ${totalChunks} chunks`);
+          const { chunks } = await getTempData<ChunkData>(documentId, 'chunks');
+          const { embeddings, tokens } = await generateEmbeddingsInBatches(
+            chunks,
+            100
+          );
 
-        await storeTempData(documentId, 'embeddings', {
-          embeddings: embeddingResults,
-        });
+          await storeTempData(documentId, 'embeddings', {
+            embeddings,
+          });
 
-        return { embeddingCount: embeddingResults.length };
-      });
+          console.log(
+            `[Step 2] Embedded ${embeddings.length} chunks using ${tokens} tokens`
+          );
+
+          // Returned rather than written to processing_temp: it is a single
+          // number, so it fits in the step payload that the temp table exists
+          // to avoid, and step 4 needs it.
+          return { embeddingCount: embeddings.length, embeddingTokens: tokens };
+        }
+      );
 
       // Step 3: Store in Database
       const storedCount = await step.run('store-chunks', async () => {
@@ -126,7 +139,9 @@ export const processDocument = inngest.createFunction(
       // Step 4: Update Status
       await step.run('finalize', async () => {
         console.log('[Step 4] Updating document status to ready');
-        await updateDocumentStatus(documentId, 'ready', pageCount);
+        await updateDocumentStatus(documentId, 'ready', pageCount, {
+          embeddingTokens,
+        });
         console.log('[Step 4] Document status updated to ready');
         return { status: 'ready' };
       });
