@@ -46,30 +46,19 @@ export async function generateEmbeddingsWithUsage(
 }
 
 /**
- * Generate embeddings for an array of text chunks, discarding usage.
- *
- * @param texts - Array of text strings to embed
- * @returns Array of embedding vectors (number[][])
- * @throws Error if OpenAI API fails
- */
-export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
-  const { embeddings } = await generateEmbeddingsWithUsage(texts);
-  return embeddings;
-}
-
-/**
  * Generate embeddings in batches to avoid rate limits
  * Recommended batch size: 100 chunks per request
  *
  * @param texts - Array of text strings to embed
  * @param batchSize - Number of texts per batch (default: 100)
- * @returns Array of embedding vectors
+ * @returns Embedding vectors and the tokens billed across every batch
  */
 export async function generateEmbeddingsInBatches(
   texts: string[],
   batchSize: number = 100
-): Promise<number[][]> {
+): Promise<EmbeddingResult> {
   const allEmbeddings: number[][] = [];
+  let totalTokens = 0;
 
   for (let i = 0; i < texts.length; i += batchSize) {
     const batch = texts.slice(i, i + batchSize);
@@ -77,15 +66,16 @@ export async function generateEmbeddingsInBatches(
       `Generating embeddings for batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(texts.length / batchSize)}`
     );
 
-    const batchEmbeddings = await generateEmbeddings(batch);
-    allEmbeddings.push(...batchEmbeddings);
+    const { embeddings, tokens } = await generateEmbeddingsWithUsage(batch);
+    allEmbeddings.push(...embeddings);
+    totalTokens += tokens;
 
     if (i + batchSize < texts.length) {
       await new Promise((resolve) => setTimeout(resolve, 1000)); // 1 second delay between batches
     }
   }
 
-  return allEmbeddings;
+  return { embeddings: allEmbeddings, tokens: totalTokens };
 }
 
 /**

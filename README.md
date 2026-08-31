@@ -167,7 +167,19 @@ from queries
 where prompt_tokens is not null;
 ```
 
-**Ingestion embeddings are still unmetered.** Embedding a document's chunks at upload time belongs to the document, not to any query, and would need a column on `documents`. It is a one-off cost per upload and small next to inference — the 719 chunks indexed so far are roughly 320k embedding tokens, about $0.006 in total — but it is not counted anywhere.
+Ingestion is metered separately on `documents.embedding_tokens`: embedding every chunk of an upload is a one-off cost that belongs to the document, not to any question asked about it. Cost across both lifecycles:
+
+```sql
+select
+  (select round((sum(embedding_tokens) / 1e6 * 0.02)::numeric, 6)
+     from documents where embedding_tokens is not null)      as ingest_usd,
+  (select round((sum(prompt_tokens)     / 1e6 * 0.15
+               + sum(completion_tokens) / 1e6 * 0.60
+               + sum(embedding_tokens)  / 1e6 * 0.02)::numeric, 6)
+     from queries where prompt_tokens is not null)           as query_usd;
+```
+
+Rates are `gpt-4o-mini` at $0.15/$0.60 per 1M input/output tokens and `text-embedding-3-small` at $0.02 per 1M. They are hardcoded in the queries above, not in the schema, so check them against current pricing before quoting a figure.
 
 ## Deploying
 
