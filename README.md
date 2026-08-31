@@ -133,6 +133,31 @@ The current committed run covers only 2 cases. That is enough to show the 1000/2
 
 RLS is enabled with owner-scoped policies (`auth.uid() = user_id`) on the user-facing tables. Auth session refresh happens in `src/proxy.ts` (Next.js 16 replaced `middleware.ts` with `proxy.ts`).
 
+### Migrations — no baseline
+
+**`supabase db reset` does not reproduce this schema.** The database was built by hand in the Supabase dashboard, so `supabase/migrations/` starts partway through its history: it contains only incremental changes applied after that point, with no migration that creates the original tables, policies, functions, or the pgvector index.
+
+Treat the remote database as the source of truth until a baseline is captured (`supabase db dump` against the live project, committed as the first migration). Until then, new changes should still be added as migration files so the gap stops growing.
+
+### Token accounting
+
+`queries` records `prompt_tokens`, `completion_tokens`, and their sum in `tokens_used`. The split is stored separately because input and output tokens are billed at different rates, so a total alone cannot produce a cost figure.
+
+`NULL` in those columns means **not measured**, which distinguishes rows written before token metering worked from a genuine zero. Filter them out when computing averages:
+
+```sql
+select
+  count(*)                                          as queries,
+  round(avg(prompt_tokens))                         as avg_input,
+  round(avg(completion_tokens))                     as avg_output,
+  sum(prompt_tokens)     / 1e6 * 0.15
+    + sum(completion_tokens) / 1e6 * 0.60           as approx_usd
+from queries
+where prompt_tokens is not null;
+```
+
+Embedding tokens are **not** metered — neither the per-query embedding nor the ingestion embeddings — so this covers inference cost only.
+
 ## Deploying
 
 The app deploys to Vercel. Two things are easy to get wrong:

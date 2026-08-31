@@ -121,6 +121,8 @@ export async function POST(request: NextRequest) {
           query_text: query,
           answer_text: fullAnswer,
           tokens_used: totalTokens,
+          prompt_tokens: promptTokens,
+          completion_tokens: completionTokens,
         });
 
         if (insertError) {
@@ -136,8 +138,6 @@ export async function POST(request: NextRequest) {
           console.error('Failed to increment query usage:', usageError);
         }
 
-        // Surfaces the input/output split in the function logs; only the
-        // total is persisted, since `queries` has a single token column.
         console.log(
           `Query recorded: document=${documentId} prompt=${promptTokens} completion=${completionTokens} total=${totalTokens}`
         );
