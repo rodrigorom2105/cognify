@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 import { Document } from '@/types';
 import DocumentCard from './document-card';
 import { deleteDocument } from '@/lib/actions/documents';
@@ -10,9 +11,10 @@ import { deleteDocument } from '@/lib/actions/documents';
 export default function DocumentList({ documents }: { documents: Document[] }) {
   const router = useRouter();
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const subscriptionRef = useRef<{
-    channel: any;
+    channel: RealtimeChannel;
   } | null>(null);
   const isRefreshingRef = useRef(false);
   const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -175,6 +177,7 @@ export default function DocumentList({ documents }: { documents: Document[] }) {
     }
 
     setDeletingIds((prev) => new Set(prev).add(documentId));
+    setDeleteError(null);
 
     const result = await deleteDocument(documentId);
 
@@ -184,11 +187,21 @@ export default function DocumentList({ documents }: { documents: Document[] }) {
       return newSet;
     });
 
+    if (!result.success) {
+      setDeleteError(`Could not delete "${filename}": ${result.message}`);
+    }
+
     // Server action calls revalidatePath() - no need for router.refresh()
   };
 
   return (
     <div className="w-full max-h-full overflow-y-auto border rounded-lg bg-white divide-y">
+      {deleteError && (
+        <p className="sticky top-0 bg-red-50 px-4 py-3 text-sm text-red-600">
+          {deleteError}
+        </p>
+      )}
+
       {documents.map((doc) => (
         <DocumentCard
           key={doc.id}

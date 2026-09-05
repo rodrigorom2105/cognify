@@ -13,6 +13,7 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
     "node_modules/**",
+    ".pnpm/**",
     "dist/**",
     "coverage/**",
     "*.config.js",
@@ -20,6 +21,10 @@ const eslintConfig = defineConfig([
     "*.config.ts",
     ".env*",
     "public/**",
+    "*.d.ts",
+    // Additional ignores:
+    "scripts/**",
+    "tests/**",
   ]),
 ]);
 

@@ -38,7 +38,7 @@ export const processDocument = inngest.createFunction(
   },
   { event: 'document.uploaded' },
   async ({ event, step }) => {
-    const { documentId, userId, storagePath, filename } = event.data;
+    const { documentId, userId, storagePath } = event.data;
 
     console.log(
       `[Inngest] Starting processing document for document: ${documentId}`

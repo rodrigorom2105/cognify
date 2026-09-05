@@ -31,11 +31,13 @@ export default function UploadZone() {
       const validationError = validateFile(file);
       if (validationError) {
         setError(validationError);
+        setSuccess(null);
         setFileName(null);
         return;
       }
 
       setError(null);
+      setSuccess(null);
       setFileName(file.name);
 
       const formData = new FormData();
@@ -47,6 +49,7 @@ export default function UploadZone() {
         .then((result) => {
           if (!result.success) {
             setError(result.message);
+            setSuccess(null);
           } else {
             setError(null);
             setSuccess('Upload successful!');
@@ -120,6 +123,8 @@ export default function UploadZone() {
       )}
 
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+
+      {success && <p className="mt-3 text-sm text-green-600">{success}</p>}
     </div>
   );
 }

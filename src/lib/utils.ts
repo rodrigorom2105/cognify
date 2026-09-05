@@ -490,7 +490,7 @@ export async function storeTempData(
 /**
  * Retrieve temporary processing data from database
  */
-export async function getTempData<T = any>(
+export async function getTempData<T = unknown>(
   documentId: string,
   stepName: string
 ): Promise<T> {

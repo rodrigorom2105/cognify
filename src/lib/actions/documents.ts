@@ -71,7 +71,7 @@ export async function uploadDocument(formData: FormData) {
       throw new Error(`File upload failed: ${uploadError.message}`);
     }
 
-    let storagePath = data.path;
+    const storagePath = data.path;
 
     try {
       // Create database record
@@ -243,6 +243,13 @@ export async function deleteDocument(documentId: string) {
       // If database operations fail after storage deletion, we can't rollback the storage deletion
       // Log this as a warning but don't throw - the file is already deleted
       console.warn('Database operation failed after file deletion:', dbError);
+
+      return {
+        success: false,
+        message:
+          'The file was removed but its record could not be deleted. Please try again.',
+        error: dbError instanceof Error ? dbError.message : 'Unknown error',
+      };
     }
   } catch (error) {
     return {
@@ -314,7 +321,11 @@ export async function getDocumentUrl(documentPath: string) {
     }
 
     return { success: true, url: data.signedUrl };
-  } catch (error: Error | any) {
-    return { success: false, message: error.message };
+  } catch (error) {
+    return {
+      success: false,
+      message:
+        error instanceof Error ? error.message : 'An unexpected error occurred',
+    };
   }
 }

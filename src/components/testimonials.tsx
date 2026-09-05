@@ -51,7 +51,7 @@ export default function Testimonials() {
                   ))}
                 </div>
                 <p className="text-foreground mb-6 leading-relaxed italic">
-                  "{testimonial.quote}"
+                  &ldquo;{testimonial.quote}&rdquo;
                 </p>
                 <div>
                   <p className="font-semibold text-foreground">
