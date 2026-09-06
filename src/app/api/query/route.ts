@@ -140,6 +140,21 @@ export async function POST(request: NextRequest) {
           console.error('Failed to increment query usage:', usageError);
         }
 
+        // Roll the per-query cost into the user_usage total. The query costs
+        // both chat tokens and the embedding tokens spent turning the question
+        // into a vector, so both are billed here.
+        const { error: tokenUsageError } = await supabase.rpc(
+          'increment_tokens_consumed',
+          {
+            user_id_input: user.id,
+            tokens_input: totalTokens + embeddingTokens,
+          }
+        );
+
+        if (tokenUsageError) {
+          console.error('Failed to increment token usage:', tokenUsageError);
+        }
+
         console.log(
           `Query recorded: document=${documentId} prompt=${promptTokens} completion=${completionTokens} total=${totalTokens} embedding=${embeddingTokens}`
         );
