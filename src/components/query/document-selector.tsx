@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import {
   Select,
   SelectContent,
@@ -7,7 +8,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { FileText } from 'lucide-react';
 import { Document } from '@/types/index';
 
 interface DocumentSelectorProps {
@@ -22,36 +22,45 @@ export function DocumentSelector({
   onSelect,
 }: DocumentSelectorProps) {
   const readyDocuments = documents.filter((d) => d.status === 'ready');
+  const processingCount = documents.filter(
+    (d) => d.status === 'processing'
+  ).length;
 
   if (readyDocuments.length === 0) {
     return (
-      <div className="flex items-center gap-2 rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-        <FileText className="h-4 w-4 shrink-0" />
-        <span>No documents ready. Upload and process a PDF first.</span>
+      <div className="rounded-lg border border-dashed p-5">
+        <p className="text-sm">
+          {processingCount > 0
+            ? 'Your document is still being processed. This usually takes under a minute.'
+            : 'There are no documents to ask about yet.'}
+        </p>
+        <Link
+          href="/dashboard/documents"
+          className="text-primary mt-2 inline-block text-sm underline-offset-4 hover:underline"
+        >
+          Go to documents
+        </Link>
       </div>
     );
   }
-  
+
   return (
-    <div className="space-y-1.5">
-      <label className="text-sm font-medium text-foreground">
-        Select a document to query
+    <div className="space-y-2">
+      <label htmlFor="document" className="heading block text-sm">
+        Document
       </label>
       <Select value={selectedId ?? ''} onValueChange={onSelect}>
-        <SelectTrigger className="w-full">
-          <SelectValue placeholder="Choose a document..." />
+        <SelectTrigger id="document" className="w-full max-w-lg">
+          <SelectValue placeholder="Choose a document" />
         </SelectTrigger>
         <SelectContent>
           {readyDocuments.map((doc) => (
             <SelectItem key={doc.id} value={doc.id}>
-              <div className="flex items-center gap-2">
-                <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-                <span className="truncate">{doc.filename}</span>
-              </div>
+              {doc.filename}
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
     </div>
-  )
+  );
 }

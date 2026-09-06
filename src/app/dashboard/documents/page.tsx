@@ -1,46 +1,46 @@
-import { createClient } from '@/lib/supabase/server';
 import UploadZone from '@/components/documents/upload-zone';
 import DocumentList from '@/components/documents/document-list';
 import { getUserDocuments } from '@/lib/actions/documents';
+import { getUserUsage } from '@/lib/actions/usage';
+import { FREE_TIER_LIMITS } from '@/lib/constants';
 
 export default async function DocumentsPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return <div>Not authenticated</div>; // Shouldn't happen (middleware protects)
-  }
-
-  const { documents, error } = await getUserDocuments();
+  const [{ documents, error }, usage] = await Promise.all([
+    getUserDocuments(),
+    getUserUsage(),
+  ]);
 
   if (error) {
-    return <div>Error loading documents: {error}</div>;
-  }
-
-  return (
-    <div className="flex flex-col gap-6 h-full">
-      <div className="shrink-0">
-        <h1 className="text-3xl font-bold text-gray-900">My Documents</h1>
-        <p className="text-gray-600 mt-1">
-          Upload and manage your PDF documents
+    return (
+      <div>
+        <h1 className="display-2 text-3xl">Documents</h1>
+        <p role="alert" className="text-destructive mt-4 text-sm">
+          {error}
         </p>
       </div>
+    );
+  }
 
-      <div className="shrink-0">
-        <UploadZone />
-      </div>
+  const used = usage?.documents_uploaded ?? 0;
+
+  return (
+    <div className="space-y-8">
+      <header className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 border-b pb-3">
+        <h1 className="display-2 text-3xl">Documents</h1>
+        <p className="tabular text-muted-foreground text-sm">
+          {used} of {FREE_TIER_LIMITS.documents} used
+        </p>
+      </header>
+
+      <UploadZone />
 
       {documents && documents.length > 0 ? (
-        <div className="flex-1 min-h-0">
-          <DocumentList documents={documents} />
-        </div>
+        <DocumentList documents={documents} />
       ) : (
-        <div className="text-center py-12">
-          <p className="text-lg">No documents yet</p>
-          <p className="text-sm mt-2">Upload your first PDF to get started</p>
-        </div>
+        <p className="text-muted-foreground text-sm">
+          No documents yet. Upload a PDF above and it will be ready to ask about
+          in about a minute.
+        </p>
       )}
     </div>
   );
