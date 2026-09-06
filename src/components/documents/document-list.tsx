@@ -195,9 +195,12 @@ export default function DocumentList({ documents }: { documents: Document[] }) {
   };
 
   return (
-    <div className="w-full max-h-full overflow-y-auto border rounded-lg bg-white divide-y">
+    <div className="w-full divide-y border-t border-b">
       {deleteError && (
-        <p className="sticky top-0 bg-red-50 px-4 py-3 text-sm text-red-600">
+        <p
+          role="alert"
+          className="bg-destructive/5 text-destructive px-4 py-3 text-sm"
+        >
           {deleteError}
         </p>
       )}

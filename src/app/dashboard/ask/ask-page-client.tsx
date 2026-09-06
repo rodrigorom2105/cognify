@@ -7,7 +7,6 @@ import { AnswerDisplay } from '@/components/query/answer-display';
 import { QueryHistory } from '@/components/query/query-history';
 import { SourceChunk } from '@/components/query/source-citations';
 import { Document, Query } from '@/types';
-import { Separator } from '@/components/ui/separator';
 
 interface AskPageClientProps {
   documents: Document[];
@@ -24,6 +23,10 @@ export function AskPageClient({
   const [chunks, setChunks] = useState<SourceChunk[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [queries, setQueries] = useState<Query[]>(initialQueries);
+  const [prefill, setPrefill] = useState('');
+  // Bumped on every "Ask again" so QueryInput remounts and picks the text up,
+  // even when the same question is reused twice.
+  const [prefillKey, setPrefillKey] = useState(0);
   const requestIdRef = useRef(0);
 
   const filteredQueries = selectedDocId
@@ -116,40 +119,37 @@ export function AskPageClient({
     }
   };
 
+  // Put the earlier question back in the box rather than firing it again, so
+  // it can be edited first.
   const handleReuse = (queryText: string) => {
-    // Scroll to top and pre-fill — handled by QueryInput via parent state
-    // For now just re-trigger the query
-    handleQuery(queryText);
+    setPrefill(queryText);
+    setPrefillKey((key) => key + 1);
   };
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8 space-y-8">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">
-          Ask your documents
-        </h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Select a document and ask any question — answers are generated from
-          the document content.
+    <div className="space-y-10">
+      <header className="space-y-1">
+        <h1 className="display-2 text-3xl">Ask</h1>
+        <p className="text-muted-foreground text-sm">
+          Answers come only from the document you choose. Every answer lists the
+          passages it was built from.
         </p>
-      </div>
+      </header>
 
-      {/* Document selector */}
       <DocumentSelector
         documents={documents}
         selectedId={selectedDocId}
         onSelect={handleDocumentSelect}
       />
 
-      {/* Query input */}
       <QueryInput
+        key={prefillKey}
+        prefill={prefill}
         onSubmit={handleQuery}
         isLoading={isStreaming}
         disabled={!selectedDocId}
       />
 
-      {/* Answer + citations */}
       <AnswerDisplay
         answer={answer}
         isStreaming={isStreaming}
@@ -157,12 +157,8 @@ export function AskPageClient({
         error={error}
       />
 
-      {/* Query history */}
       {filteredQueries.length > 0 && (
-        <>
-          <Separator />
-          <QueryHistory queries={filteredQueries} onReuse={handleReuse} />
-        </>
+        <QueryHistory queries={filteredQueries} onReuse={handleReuse} />
       )}
     </div>
   );
