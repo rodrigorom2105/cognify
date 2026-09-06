@@ -1,0 +1,23 @@
+-- Drop the IVFFlat index on document_chunks.embedding.
+--
+-- Retrieval is always scoped to a single document (match_document_chunks):
+--
+--   where document_id = $1 order by embedding <=> $2 limit 8
+--
+-- An IVFFlat scan cannot honour that filter. It probes `ivfflat.probes` lists
+-- (default: 1) across every document's vectors and only then discards the rows
+-- belonging to other documents, so the 8 requested chunks come back as 0-2 and
+-- /api/query answers "No relevant content found" for a document that is ready
+-- and fully embedded.
+--
+-- Measured 2026-09-06 against the live corpus (1 document, 8 embedded chunks):
+-- the RPC returned 2 of 8 rows at the default probe count, and all 8 with
+-- `set ivfflat.probes = 50`. Probing enough lists to be correct is the same
+-- work as a sequential scan, so the index earns nothing at this size.
+--
+-- Without it, Postgres filters on idx_document_chunks_document_id and sorts
+-- the surviving rows exactly: correct results, and faster here. If the corpus
+-- ever grows enough for the exact sort to hurt, the replacement is an index
+-- that can be scoped per document -- not another global IVFFlat.
+
+drop index if exists public.document_chunks_embedding_idx;
