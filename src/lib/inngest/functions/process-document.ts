@@ -146,6 +146,28 @@ export const processDocument = inngest.createFunction(
         return { status: 'ready' };
       });
 
+      // Step 4b: Meter the embedding cost against the user's quota.
+      //
+      // Its own step rather than part of 'finalize': Inngest memoizes a step
+      // once it succeeds, so keeping the increment separate stops a failure
+      // here from re-running the status update, and vice versa — a retry that
+      // replayed both would double-count the tokens.
+      await step.run('record-token-usage', async () => {
+        console.log(`[Step 4b] Recording ${embeddingTokens} embedding tokens`);
+        const supabase = await createServiceClient();
+
+        const { error } = await supabase.rpc('increment_tokens_consumed', {
+          user_id_input: userId,
+          tokens_input: embeddingTokens,
+        });
+
+        if (error) {
+          throw new Error(`Failed to record token usage: ${error.message}`);
+        }
+
+        return { embeddingTokens };
+      });
+
       // Step 5: Cleanup Temporary Data
       await step.run('cleanup-temp-data', async () => {
         console.log('[Cleanup] Removing temporary data');

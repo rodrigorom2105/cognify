@@ -4,17 +4,18 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { getCurrentUser } from '@/lib/actions/auth';
+import { getUserUsage } from '@/lib/actions/usage';
+import { FREE_TIER_LIMITS } from '@/lib/constants';
 
 export default async function DashboardPage() {
-  const user = await getCurrentUser();
+  const [user, usage] = await Promise.all([getCurrentUser(), getUserUsage()]);
   const userName = user
     ? `${user.name} ${user.last_name}`.trim() || user.email
     : 'User';
 
-  // Mock data - replace with real data from your backend
-  const documentsUploaded = 0;
-  const queriesMade = 0;
-  const tokensConsumed = 0;
+  const documentsUploaded = usage?.documents_uploaded ?? 0;
+  const queriesMade = usage?.queries_made ?? 0;
+  const tokensConsumed = usage?.tokens_consumed ?? 0;
 
   return (
     <main className="space-y-6">
@@ -29,19 +30,19 @@ export default async function DashboardPage() {
         <StatsCard
           title="Documents Uploaded"
           current={documentsUploaded}
-          limit={10}
+          limit={FREE_TIER_LIMITS.documents}
           icon={FileText}
         />
         <StatsCard
           title="Queries Made"
           current={queriesMade}
-          limit={100}
+          limit={FREE_TIER_LIMITS.queries}
           icon={MessageSquare}
         />
         <StatsCard
           title="Tokens Consumed"
           current={tokensConsumed}
-          limit={1000000}
+          limit={FREE_TIER_LIMITS.tokens}
           icon={Zap}
         />
       </div>

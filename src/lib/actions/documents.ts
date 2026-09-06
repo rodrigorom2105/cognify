@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { inngest } from '@/lib/inngest/client';
 import { revalidatePath } from 'next/cache';
+import { FREE_TIER_LIMITS } from '@/lib/constants';
 /**
  * Upload a document and trigger background processing
  *
@@ -53,9 +54,7 @@ export async function uploadDocument(formData: FormData) {
       throw new Error(`Failed to fetch user usage: ${usageQueryError.message}`);
     }
 
-    const USER_FREE_USAGE_LIMIT = 10;
-
-    if (usage && usage.documents_uploaded >= USER_FREE_USAGE_LIMIT) {
+    if (usage && usage.documents_uploaded >= FREE_TIER_LIMITS.documents) {
       return { success: false, message: 'Document upload limit reached' };
     }
 
