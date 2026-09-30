@@ -11,14 +11,14 @@ import { signupUser } from '@/lib/actions/auth';
 
 const signupSchema = z
   .object({
-    email: z.email(),
-    name: z.string().min(1, 'Name is required'),
-    last_name: z.string().min(1, 'Last name is required'),
-    password: z.string().min(8, 'Password must be at least 8 characters'),
+    email: z.email('That does not look like an email address'),
+    name: z.string().min(1, 'Enter your first name'),
+    last_name: z.string().min(1, 'Enter your last name'),
+    password: z.string().min(8, 'Use at least 8 characters'),
     confirmPassword: z.string(),
   })
   .refine((data) => data.password === data.confirmPassword, {
-    message: "Passwords don't match",
+    message: 'The two passwords do not match',
     path: ['confirmPassword'],
   });
 
@@ -53,68 +53,94 @@ export function SignupForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      <div>
-        <Label htmlFor="name" className="pb-2">
-          Name
-        </Label>
-        <Input id="name" {...register('name')} />
-        {errors.name && (
-          <p className="text-sm text-red-500">{errors.name.message}</p>
-        )}
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label htmlFor="name">First name</Label>
+          <Input
+            id="name"
+            autoComplete="given-name"
+            aria-invalid={!!errors.name}
+            {...register('name')}
+          />
+          {errors.name && (
+            <p className="text-destructive text-xs">{errors.name.message}</p>
+          )}
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="last_name">Last name</Label>
+          <Input
+            id="last_name"
+            autoComplete="family-name"
+            aria-invalid={!!errors.last_name}
+            {...register('last_name')}
+          />
+          {errors.last_name && (
+            <p className="text-destructive text-xs">
+              {errors.last_name.message}
+            </p>
+          )}
+        </div>
       </div>
 
-      <div>
-        <Label htmlFor="last_name" className="pb-2">
-          Last Name
-        </Label>
-        <Input id="last_name" {...register('last_name')} />
-        {errors.last_name && (
-          <p className="text-sm text-red-500">{errors.last_name.message}</p>
-        )}
-      </div>
-
-      <div>
-        <Label htmlFor="email" className="pb-2">
-          Email
-        </Label>
-        <Input id="email" {...register('email')} />
+      <div className="space-y-1.5">
+        <Label htmlFor="email">Email</Label>
+        <Input
+          id="email"
+          type="email"
+          autoComplete="email"
+          aria-invalid={!!errors.email}
+          {...register('email')}
+        />
         {errors.email && (
-          <p className="text-sm text-red-500">{errors.email.message}</p>
+          <p className="text-destructive text-xs">{errors.email.message}</p>
         )}
       </div>
 
-      <div>
-        <Label htmlFor="password" className="pb-2">
-          Password
-        </Label>
-        <Input id="password" type="password" {...register('password')} />
+      <div className="space-y-1.5">
+        <Label htmlFor="password">Password</Label>
+        <Input
+          id="password"
+          type="password"
+          autoComplete="new-password"
+          aria-invalid={!!errors.password}
+          {...register('password')}
+        />
         {errors.password && (
-          <p className="text-sm text-red-500">{errors.password.message}</p>
+          <p className="text-destructive text-xs">{errors.password.message}</p>
         )}
       </div>
 
-      <div>
-        <Label htmlFor="confirmPassword" className="pb-2">
-          Confirm Password
-        </Label>
+      <div className="space-y-1.5">
+        <Label htmlFor="confirmPassword">Confirm password</Label>
         <Input
           id="confirmPassword"
           type="password"
+          autoComplete="new-password"
+          aria-invalid={!!errors.confirmPassword}
           {...register('confirmPassword')}
         />
         {errors.confirmPassword && (
-          <p className="text-sm text-red-500">
+          <p className="text-destructive text-xs">
             {errors.confirmPassword.message}
           </p>
         )}
       </div>
 
-      {error && <p className="text-sm text-red-500">{error}</p>}
-      {message && <p className="text-sm text-green-500">{message}</p>}
+      {error && (
+        <p role="alert" className="text-destructive text-sm">
+          {error}
+        </p>
+      )}
+      {message && (
+        <p role="status" className="text-primary text-sm">
+          {message}
+        </p>
+      )}
 
-      <Button type="submit" disabled={isSubmitting}>
-        {isSubmitting ? 'Signing Up...' : 'Sign Up'}
+      <Button type="submit" disabled={isSubmitting} className="w-full">
+        {isSubmitting ? 'Creating account' : 'Create account'}
       </Button>
     </form>
   );

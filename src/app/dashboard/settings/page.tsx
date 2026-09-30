@@ -1,114 +1,69 @@
-import { createClient } from '@/lib/supabase/server';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { format } from 'date-fns';
+import { getCurrentUser } from '@/lib/actions/auth';
+import { getUserUsage } from '@/lib/actions/usage';
+import { FREE_TIER_LIMITS } from '@/lib/constants';
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-baseline gap-4 py-3">
+      <dt className="text-muted-foreground w-40 shrink-0 text-sm">{label}</dt>
+      <dd className="tabular min-w-0 flex-1 text-sm break-words">{value}</dd>
+    </div>
+  );
+}
 
 export default async function SettingsPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const [user, usage] = await Promise.all([getCurrentUser(), getUserUsage()]);
 
-  if (!user) {
-    return null;
-  }
+  if (!user) return null;
 
-  // Get usage stats
-  const { data: usage } = await supabase
-    .from('user_usage')
-    .select('*')
-    .eq('user_id', user.id)
-    .single();
+  const resetsOn = usage?.last_reset_at
+    ? new Date(usage.last_reset_at)
+    : new Date();
+  resetsOn.setMonth(resetsOn.getMonth() + 1);
+
+  const fullName = `${user.name} ${user.last_name}`.trim();
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
-        <p className="text-gray-600 mt-1">
-          Manage your account and preferences
+    <div className="space-y-10">
+      <header className="border-b pb-3">
+        <h1 className="display-2 text-3xl">Account</h1>
+      </header>
+
+      <section className="space-y-3">
+        <h2 className="heading border-b pb-2 text-sm">You</h2>
+        <dl className="divide-y border-b">
+          {fullName && <Row label="Name" value={fullName} />}
+          <Row label="Email" value={user.email} />
+          <Row
+            label="Joined"
+            value={format(new Date(user.created_at), 'd MMMM yyyy')}
+          />
+        </dl>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="heading border-b pb-2 text-sm">This month</h2>
+        <dl className="divide-y border-b">
+          <Row
+            label="Documents"
+            value={`${usage?.documents_uploaded ?? 0} of ${FREE_TIER_LIMITS.documents}`}
+          />
+          <Row
+            label="Questions"
+            value={`${usage?.queries_made ?? 0} of ${FREE_TIER_LIMITS.queries}`}
+          />
+          <Row
+            label="Tokens"
+            value={`${(usage?.tokens_consumed ?? 0).toLocaleString()} of ${FREE_TIER_LIMITS.tokens.toLocaleString()}`}
+          />
+          <Row label="Resets on" value={format(resetsOn, 'd MMMM yyyy')} />
+        </dl>
+        <p className="text-muted-foreground text-xs">
+          Cognify is free while it is a personal project. These are the only
+          limits, and there is nothing to pay.
         </p>
-      </div>
-
-      {/* Account Information */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Account Information</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <label className="text-sm font-medium text-gray-700">Email</label>
-            <p className="text-sm text-gray-900 mt-1">{user.email}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-gray-700">User ID</label>
-            <p className="text-sm text-gray-500 mt-1 font-mono">{user.id}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-gray-700">
-              Account Created
-            </label>
-            <p className="text-sm text-gray-900 mt-1">
-              {new Date(user.created_at).toLocaleDateString()}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Subscription Plan */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Subscription Plan</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-medium">Free Tier</p>
-              <p className="text-sm text-gray-600 mt-1">
-                Limited to 10 documents and 100 queries per month
-              </p>
-            </div>
-            <Badge>Active</Badge>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Usage Limits */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Usage Limits</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex justify-between items-center">
-            <span className="text-sm font-medium">Documents</span>
-            <span className="text-sm text-gray-600">
-              {usage?.documents_uploaded || 0} / 10
-            </span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-sm font-medium">Queries</span>
-            <span className="text-sm text-gray-600">
-              {usage?.queries_made || 0} / 100
-            </span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-sm font-medium">Tokens Consumed</span>
-            <span className="text-sm text-gray-600">
-              {usage?.tokens_consumed || 0} / 1,000,000
-            </span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-sm font-medium">Resets On</span>
-            <span className="text-sm text-gray-600">
-              {usage?.last_reset_at
-                ? new Date(
-                    new Date(usage.last_reset_at).setMonth(
-                      new Date(usage.last_reset_at).getMonth() + 1
-                    )
-                  ).toLocaleDateString()
-                : 'N/A'}
-            </span>
-          </div>
-        </CardContent>
-      </Card>
+      </section>
     </div>
   );
 }

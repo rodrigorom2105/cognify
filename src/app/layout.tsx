@@ -1,23 +1,29 @@
 import React from 'react';
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
+import { Archivo, Literata } from 'next/font/google';
 import { Analytics } from '@vercel/analytics/next';
+import { ThemeProvider } from '@/components/theme-provider';
+import { Toaster } from '@/components/ui/sonner';
 import './globals.css';
 
-const geistSans = Geist({
+// Archivo is the app's voice: chrome, headings, controls, locators.
+const archivo = Archivo({
   subsets: ['latin'],
-  variable: '--font-geist-sans',
+  variable: '--font-archivo',
+  display: 'swap',
 });
-const geistMono = Geist_Mono({
+
+// Literata is the document's voice: answers and retrieved passages only.
+const literata = Literata({
   subsets: ['latin'],
-  variable: '--font-geist-mono',
+  variable: '--font-literata',
+  display: 'swap',
 });
 
 export const metadata: Metadata = {
-  title: 'Cognify - AI-Powered Document Intelligence',
+  title: 'Cognify — answers from your PDFs, with the passages they came from',
   description:
-    'Upload files and discover insights with RAG and vector embeddings. Cognify uses advanced AI to search and analyze your information intelligently.',
-  generator: 'v0.app',
+    'Upload a PDF and ask questions about it. Cognify answers using only what the document says, and shows you the passages it used.',
   icons: {
     icon: [
       {
@@ -43,9 +49,21 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
-      <body className={`font-sans antialiased h-full`}>
-        {children}
+    <html
+      lang="en"
+      className={`${archivo.variable} ${literata.variable}`}
+      suppressHydrationWarning
+    >
+      <body className="font-sans antialiased">
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          {children}
+          <Toaster />
+        </ThemeProvider>
         <Analytics />
       </body>
     </html>

@@ -11,8 +11,8 @@ import { loginUser } from '@/lib/actions/auth';
 import { useSearchParams } from 'next/navigation';
 
 const loginSchema = z.object({
-  email: z.email('Invalid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  email: z.email('That does not look like an email address'),
+  password: z.string().min(8, 'Passwords are at least 8 characters'),
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
@@ -40,35 +40,44 @@ export function LoginForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      <div>
-        <Label htmlFor="email" className="pb-2">
-          Email
-        </Label>
-        <Input id="email" {...register('email')} />
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
+      <div className="space-y-1.5">
+        <Label htmlFor="email">Email</Label>
+        <Input
+          id="email"
+          type="email"
+          autoComplete="email"
+          aria-invalid={!!errors.email}
+          {...register('email')}
+        />
         {errors.email && (
-          <p className="text-sm text-red-500">{errors.email.message}</p>
+          <p className="text-destructive text-xs">{errors.email.message}</p>
         )}
       </div>
 
-      <div>
-        <Label htmlFor="password" className="pb-2">
-          Password
-        </Label>
-        <Input id="password" type="password" {...register('password')} />
+      <div className="space-y-1.5">
+        <Label htmlFor="password">Password</Label>
+        <Input
+          id="password"
+          type="password"
+          autoComplete="current-password"
+          aria-invalid={!!errors.password}
+          {...register('password')}
+        />
         {errors.password && (
-          <p className="text-sm text-red-500">{errors.password.message}</p>
+          <p className="text-destructive text-xs">{errors.password.message}</p>
         )}
       </div>
 
-      {error && <p className="text-sm text-red-500">{error}</p>}
-
-      {urlError && (
-        <p className="text-red-500">Invalid or expired confirmation link</p>
+      {(error || urlError) && (
+        <p role="alert" className="text-destructive text-sm">
+          {error ||
+            'That confirmation link is invalid or has expired. Sign in, or create a new account.'}
+        </p>
       )}
 
-      <Button type="submit" disabled={isSubmitting}>
-        {isSubmitting ? 'Logging in...' : 'Log In'}
+      <Button type="submit" disabled={isSubmitting} className="w-full">
+        {isSubmitting ? 'Signing in' : 'Sign in'}
       </Button>
     </form>
   );

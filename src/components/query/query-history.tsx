@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { History, ChevronDown, ChevronUp } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { format } from 'date-fns';
+import { ChevronDown } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { Query } from '@/types';
 
 interface QueryHistoryProps {
@@ -13,95 +13,76 @@ interface QueryHistoryProps {
 
 export function QueryHistory({ queries, onReuse }: QueryHistoryProps) {
   const [expanded, setExpanded] = useState(false);
-  const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
 
   if (queries.length === 0) return null;
 
-  const visibleQueries = expanded ? queries : queries.slice(0, 3);
-
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString("en-US");
-  };
+  const visibleQueries = expanded ? queries : queries.slice(0, 4);
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2">
-        <History className="h-4 w-4 text-muted-foreground" />
-        <span className="text-sm font-medium text-foreground">
-          Query history
-        </span>
-        <Badge variant="secondary" className="text-xs">
-          {queries.length}
-        </Badge>
-      </div>
+    <section className="space-y-3" aria-label="Earlier questions">
+      <h2 className="heading border-b pb-2 text-sm">Earlier questions</h2>
 
-      <div className="space-y-1.5">
-        {visibleQueries.map((query, i) => (
-          <div
-            key={query.id}
-            className="rounded-lg border bg-muted/30 overflow-hidden"
-          >
-            <button
-              onClick={() => setOpenIndex(openIndex === i ? null : i)}
-              className="w-full flex items-start justify-between gap-3 p-3 text-left hover:bg-muted/50 transition-colors"
-            >
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">
+      <ul className="divide-y border-b">
+        {visibleQueries.map((query) => {
+          const isOpen = openId === query.id;
+
+          return (
+            <li key={query.id}>
+              <button
+                type="button"
+                onClick={() => setOpenId(isOpen ? null : query.id)}
+                aria-expanded={isOpen}
+                className="hover:bg-accent/50 focus-visible:ring-ring flex w-full items-baseline gap-4 py-3 text-left focus-visible:ring-2 focus-visible:outline-none"
+              >
+                <span className="rail self-stretch">
+                  {format(new Date(query.created_at), 'd MMM')}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-sm">
                   {query.query_text}
-                </p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {formatDate(query.created_at)}
-                  {(query.tokens_used ?? 0) > 0 && (
-                    <span className="ml-2">{query.tokens_used} tokens</span>
+                </span>
+                <ChevronDown
+                  className={cn(
+                    'text-muted-foreground size-4 shrink-0 transition-transform',
+                    isOpen && 'rotate-180'
                   )}
-                </p>
-              </div>
-              {openIndex === i ? (
-                <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground mt-0.5" />
-              ) : (
-                <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground mt-0.5" />
+                  aria-hidden="true"
+                />
+              </button>
+
+              {isOpen && query.answer_text && (
+                <div className="flex gap-4 pb-4">
+                  <span className="rail self-stretch" aria-hidden="true" />
+                  <div className="min-w-0 flex-1 space-y-3">
+                    <p className="prose-doc-sm text-muted-foreground">
+                      {query.answer_text}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => onReuse(query.query_text)}
+                      className="text-primary focus-visible:ring-ring rounded-md text-xs underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:outline-none"
+                    >
+                      Ask again
+                    </button>
+                  </div>
+                </div>
               )}
-            </button>
+            </li>
+          );
+        })}
+      </ul>
 
-            {openIndex === i && query.answer_text && (
-              <div className="px-3 pb-3 space-y-2 border-t pt-2">
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  {query.answer_text}
-                </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-xs"
-                  onClick={() => onReuse(query.query_text)}
-                >
-                  Ask again
-                </Button>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-
-      {queries.length > 3 && (
-        <Button
-          variant="ghost"
-          size="sm"
+      {queries.length > 4 && (
+        <button
+          type="button"
           onClick={() => setExpanded(!expanded)}
-          className="h-7 text-xs text-muted-foreground"
+          className="text-primary focus-visible:ring-ring rounded-md text-xs underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:outline-none"
         >
-          {expanded ? (
-            <>
-              <ChevronUp className="h-3 w-3 mr-1" /> Show less
-            </>
-          ) : (
-            <>
-              <ChevronDown className="h-3 w-3 mr-1" /> Show {queries.length - 3}{' '}
-              more
-            </>
-          )}
-        </Button>
+          {expanded
+            ? 'Show fewer questions'
+            : `Show ${queries.length - 4} more questions`}
+        </button>
       )}
-    </div>
+    </section>
   );
 }

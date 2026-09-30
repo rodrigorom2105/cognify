@@ -3,23 +3,21 @@
 import { cn } from '@/lib/utils';
 import React, { useCallback, useState } from 'react';
 import { uploadDocument } from '@/lib/actions/documents';
-import { Upload } from 'lucide-react';
+
+const MAX_SIZE_MB = 10;
 
 export default function UploadZone() {
   const [isUploading, setIsUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-  const [fileName, setFileName] = useState<string | null>(null);
-
-  const MAX_SIZE_MB = 10;
+  const [status, setStatus] = useState<string | null>(null);
 
   const validateFile = (file: File) => {
     if (file.type !== 'application/pdf') {
-      return 'Only PDF files are allowed.';
+      return 'That file is not a PDF. Cognify reads PDFs only.';
     }
     if (file.size > MAX_SIZE_MB * 1024 * 1024) {
-      return 'PDF must be smaller than 10MB.';
+      return `That PDF is ${(file.size / 1024 / 1024).toFixed(1)} MB. The limit is ${MAX_SIZE_MB} MB.`;
     }
     return null;
   };
@@ -31,14 +29,12 @@ export default function UploadZone() {
       const validationError = validateFile(file);
       if (validationError) {
         setError(validationError);
-        setSuccess(null);
-        setFileName(null);
+        setStatus(null);
         return;
       }
 
       setError(null);
-      setSuccess(null);
-      setFileName(file.name);
+      setStatus(`Uploading ${file.name}`);
 
       const formData = new FormData();
       formData.append('file', file);
@@ -49,82 +45,72 @@ export default function UploadZone() {
         .then((result) => {
           if (!result.success) {
             setError(result.message);
-            setSuccess(null);
+            setStatus(null);
           } else {
             setError(null);
-            setSuccess('Upload successful!');
-            // Server action calls revalidatePath() - no need for router.refresh()
+            setStatus(`Uploaded ${file.name}. Processing has started.`);
           }
         })
-        .finally(() => {
-          setIsUploading(false);
-          setFileName(null);
-        });
+        .finally(() => setIsUploading(false));
     },
     [isUploading]
   );
 
-  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDragLeave = (e: React.DragEvent<HTMLLabelElement>) => {
     e.preventDefault();
-
     if (!e.currentTarget.contains(e.relatedTarget as Node)) {
       setIsDragging(false);
     }
   };
 
   return (
-    <div
-      onDragEnter={() => setIsDragging(true)}
-      onDragLeave={handleDragLeave}
-      onDragOver={(e) => e.preventDefault()}
-      onDrop={(e) => {
-        e.preventDefault();
-        setIsDragging(false);
-        handleFile(e.dataTransfer.files[0]);
-      }}
-      onClick={() => {
-        if (isUploading) return;
-        document.getElementById('upload-input')?.click();
-      }}
-      className={cn(
-        'flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-6 cursor-pointer transition-colors',
-        isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-white',
-        isUploading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
-      )}
-    >
-      <Upload
+    <div className="space-y-2">
+      {/*
+        A label rather than a click-handling div: the file input stays the real
+        control, so pointer and keyboard both reach it without extra handlers.
+      */}
+      <label
+        htmlFor="upload-input"
+        onDragEnter={() => setIsDragging(true)}
+        onDragLeave={handleDragLeave}
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => {
+          e.preventDefault();
+          setIsDragging(false);
+          handleFile(e.dataTransfer.files[0]);
+        }}
         className={cn(
-          'h-12 w-12 mb-4',
-          isUploading ? 'text-blue-500 animate-pulse' : 'text-gray-400'
+          'flex cursor-pointer flex-col items-start gap-1 rounded-lg border border-dashed px-5 py-6 transition-colors',
+          'has-[:focus-visible]:ring-ring has-[:focus-visible]:ring-2',
+          isDragging ? 'border-primary bg-primary/5' : 'border-border bg-card',
+          isUploading && 'cursor-not-allowed opacity-60'
         )}
-      />
+      >
+        <span className="text-sm font-medium">
+          {isUploading ? 'Uploading' : 'Drop a PDF here, or choose a file'}
+        </span>
+        <span className="text-muted-foreground text-xs">
+          PDF with a text layer, up to {MAX_SIZE_MB} MB. Scanned pages cannot be
+          read.
+        </span>
 
-      <input
-        id="upload-input"
-        type="file"
-        accept="application/pdf"
-        hidden
-        disabled={isUploading}
-        onChange={(e) => handleFile(e.target.files?.[0] ?? null)}
-      />
+        <input
+          id="upload-input"
+          type="file"
+          accept="application/pdf"
+          className="sr-only"
+          disabled={isUploading}
+          onChange={(e) => handleFile(e.target.files?.[0] ?? null)}
+        />
+      </label>
 
-      <p className="text-lg font-medium">
-        {isUploading ? 'Uploading...' : 'Upload your PDF'}
+      <p aria-live="polite" className="min-h-4 text-xs">
+        {error ? (
+          <span className="text-destructive">{error}</span>
+        ) : (
+          <span className="text-muted-foreground">{status}</span>
+        )}
       </p>
-
-      <p className="text-sm text-gray-500">
-        Drag & drop or click to select a file
-      </p>
-
-      <p className="mt-2 text-xs text-gray-400">PDF only / Max size: 10MB</p>
-
-      {fileName && (
-        <p className="mt-3 text-sm text-green-600">Selected: {fileName}</p>
-      )}
-
-      {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
-
-      {success && <p className="mt-3 text-sm text-green-600">{success}</p>}
     </div>
   );
 }

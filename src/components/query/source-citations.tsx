@@ -1,9 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown, ChevronUp, Quote } from 'lucide-react';
-import { Badge } from '../ui/badge';
-import { Button } from '../ui/button';
 
 export interface SourceChunk {
   chunk_index: number;
@@ -15,84 +12,64 @@ interface SourceCitationsProps {
   chunks: SourceChunk[];
 }
 
+// Below this, a passage is close enough to be retrieved but not close enough
+// to be worth reading. Flagging only those beats labelling all three states.
+const WEAK_MATCH = 0.35;
+
 export function SourceCitations({ chunks }: SourceCitationsProps) {
   const [expanded, setExpanded] = useState(false);
 
-  const visibleChunks = expanded ? chunks : chunks.slice(0, 2);
-
-  const getSimilarityColor = (similarity: number) => {
-    // Calibrated for cosine similarity in document RAG retrieval.
-    if (similarity >= 0.55)
-      return 'bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20';
-    if (similarity >= 0.35)
-      return 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border-yellow-500/20';
-    return 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20';
-  };
-
-  const getSimilarityLabel = (similarity: number) => {
-    if (similarity >= 0.55) return 'Strong';
-    if (similarity >= 0.35) return 'Relevant';
-    return 'Weak';
-  };
+  const visibleChunks = expanded ? chunks : chunks.slice(0, 3);
+  const closest = chunks.reduce(
+    (best, chunk) => (chunk.similarity > best.similarity ? chunk : best),
+    chunks[0]
+  );
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2">
-        <Quote className="h-4 w-4 text-muted-foreground" />
-        <span className="text-sm font-medium text-foreground">
-          Sources used
-        </span>
-        <Badge variant="secondary" className="text-xs">
-          {chunks.length} chunk{chunks.length > 1 ? 's' : ''}
-        </Badge>
-        <span className="text-xs text-muted-foreground">
-          Typical useful range: 0.25 to 0.60
-        </span>
+    <section className="space-y-4" aria-label="Passages used">
+      <div className="border-b pb-2">
+        <h2 className="heading text-sm">Passages used</h2>
+        <p className="text-muted-foreground mt-1 text-xs">
+          Numbered as the answer cites them. &para; marks where the passage sits
+          in the document, and the decimal is how close it was to your question
+          &mdash; 0.25 to 0.60 is a normal match. The closest is highlighted.
+        </p>
       </div>
 
-      <div className="space-y-2">
-        {visibleChunks.map((chunk, i) => (
-          <div
-            key={chunk.chunk_index}
-            className="rounded-lg border bg-muted/30 p-3 space-y-1.5"
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-muted-foreground">
-                Source {i + 1} · Chunk #{chunk.chunk_index}
-              </span>
-              <span
-                className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${getSimilarityColor(chunk.similarity)}`}
-              >
-                {getSimilarityLabel(chunk.similarity)} (
-                {chunk.similarity.toFixed(3)})
-              </span>
+      <ol className="space-y-5">
+        {visibleChunks.map((chunk, index) => (
+          <li key={chunk.chunk_index} className="flex gap-4">
+            <div className="rail w-20 pt-0.5 leading-5">
+              <div className="text-foreground font-medium">{index + 1}</div>
+              <div>&para;{chunk.chunk_index}</div>
+              <div>{chunk.similarity.toFixed(3)}</div>
+              {chunk.similarity < WEAK_MATCH && (
+                <div className="mt-1">weak</div>
+              )}
             </div>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              {chunk.preview}
-            </p>
-          </div>
-        ))}
-      </div>
 
-      {chunks.length > 2 && (
-        <Button
-          variant="ghost"
-          size="sm"
+            <p className="prose-doc-sm text-foreground min-w-0 flex-1">
+              {chunk.chunk_index === closest.chunk_index ? (
+                <span className="mark-span">{chunk.preview}</span>
+              ) : (
+                chunk.preview
+              )}
+            </p>
+          </li>
+        ))}
+      </ol>
+
+      {chunks.length > 3 && (
+        <button
+          type="button"
           onClick={() => setExpanded(!expanded)}
-          className="h-7 text-xs text-muted-foreground"
+          className="text-primary rounded-md text-xs underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
-          {expanded ? (
-            <>
-              <ChevronUp className="h-3 w-3 mr-1" /> Show less
-            </>
-          ) : (
-            <>
-              <ChevronDown className="h-3 w-3 mr-1" /> Show {chunks.length - 2}{' '}
-              more
-            </>
-          )}
-        </Button>
+          {expanded
+            ? 'Show fewer passages'
+            : `Show ${chunks.length - 3} more passages`}
+        </button>
       )}
-    </div>
+    </section>
   );
 }

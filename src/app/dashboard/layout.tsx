@@ -1,22 +1,21 @@
 import React from 'react';
 import { DashboardSidebar } from '@/components/dashboard/sidebar';
-import { DashboardHeader } from '@/components/dashboard/header';
 import { getCurrentUser } from '@/lib/actions/auth';
+import { getUserUsage } from '@/lib/actions/usage';
 
-export  default async function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const user = await getCurrentUser();
+  const [user, usage] = await Promise.all([getCurrentUser(), getUserUsage()]);
 
   return (
-    <div className="flex h-screen bg-background">
-      <DashboardSidebar />
-      <div className="flex-1 flex flex-col">
-        <DashboardHeader userName={user?.name} />
-        <main className="flex-1 p-6 overflow-auto">{children}</main>
-      </div>
+    <div className="bg-background flex min-h-screen flex-col md:h-screen md:flex-row">
+      <DashboardSidebar email={user?.email} usage={usage} />
+      <main className="flex-1 overflow-y-auto px-5 py-8 md:px-10 md:py-10">
+        <div className="mx-auto w-full max-w-3xl">{children}</div>
+      </main>
     </div>
   );
 }

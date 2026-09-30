@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { Bot, Loader2 } from 'lucide-react';
 import { SourceCitations, SourceChunk } from './source-citations';
 
 interface AnswerDisplayProps {
@@ -19,16 +18,15 @@ export function AnswerDisplay({
 }: AnswerDisplayProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  //Auto-scroll as answer streams in
+  // Follow the answer as it streams.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [answer]);
 
   if (error) {
     return (
-      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
-        <p className="text-sm text-destructive font-medium">Error</p>
-        <p className="text-sm text-destructive/80 mt-1">{error}</p>
+      <div className="border-destructive/40 bg-destructive/5 rounded-lg border p-4">
+        <p className="text-destructive text-sm">{error}</p>
       </div>
     );
   }
@@ -36,29 +34,20 @@ export function AnswerDisplay({
   if (!answer && !isStreaming) return null;
 
   return (
-    <div className="space-y-4">
-      {/* Answer box */}
-      <div className="rounded-lg border bg-card p-4 space-y-3">
-        <div className="flex items-center gap-2">
-          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10">
-            <Bot className="h-3.5 w-3.5 text-primary" />
-          </div>
-          <span className="text-sm font-medium">Answer</span>
-          {isStreaming && (
-            <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />
-          )}
-        </div>
-
-        <div className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">
+    <div className="space-y-8">
+      <div aria-live="polite" aria-busy={isStreaming}>
+        <p className="prose-doc text-foreground whitespace-pre-wrap">
           {answer}
-          {/* Blinking cursor while streaming */}
           {isStreaming && (
-            <span className="inline-block w-0.5 h-4 bg-primary ml-0.5 animate-pulse align-middle" />
+            <span
+              className="bg-primary ml-0.5 inline-block h-[1.1em] w-[2px] animate-pulse align-text-bottom"
+              aria-hidden="true"
+            />
           )}
-        </div>
+        </p>
       </div>
 
-      {/* Sources — only show after streaming completes */}
+      {/* Passages are only meaningful once the answer that used them is whole. */}
       {!isStreaming && chunks.length > 0 && <SourceCitations chunks={chunks} />}
 
       <div ref={bottomRef} />

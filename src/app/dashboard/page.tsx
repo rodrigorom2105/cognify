@@ -1,113 +1,153 @@
-import { StatsCard } from '@/components/dashboard/stats-cards';
-import { FileText, MessageSquare, Zap } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { format } from 'date-fns';
+import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/actions/auth';
+import { getUserDocuments } from '@/lib/actions/documents';
 import { getUserUsage } from '@/lib/actions/usage';
 import { FREE_TIER_LIMITS } from '@/lib/constants';
+import StatusBadge from '@/components/documents/document-status-badge';
+import { Button } from '@/components/ui/button';
+import type { Query } from '@/types';
+
+// The one genuine sequence in the product, so it is the one place numbering
+// earns its keep — and it only appears while there is nothing else to show.
+const gettingStarted = [
+  'Upload a PDF. It has to have a text layer; scanned pages cannot be read.',
+  'Wait about a minute while the text is extracted, split and embedded.',
+  'Ask a question about it in your own words.',
+  'Read the answer, then check the passages it was built from.',
+];
 
 export default async function DashboardPage() {
-  const [user, usage] = await Promise.all([getCurrentUser(), getUserUsage()]);
-  const userName = user
-    ? `${user.name} ${user.last_name}`.trim() || user.email
-    : 'User';
+  const supabase = await createClient();
 
-  const documentsUploaded = usage?.documents_uploaded ?? 0;
-  const queriesMade = usage?.queries_made ?? 0;
-  const tokensConsumed = usage?.tokens_consumed ?? 0;
+  const [user, usage, { documents }] = await Promise.all([
+    getCurrentUser(),
+    getUserUsage(),
+    getUserDocuments(),
+  ]);
+
+  // Filtered explicitly rather than leaning on RLS alone, matching the ask page.
+  const { data: recentQueries } = user
+    ? await supabase
+        .from('queries')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(4)
+    : { data: [] };
+
+  const docs = documents ?? [];
+  const queries: Query[] = recentQueries ?? [];
+  const firstName = user?.name?.trim();
+
+  if (docs.length === 0) {
+    return (
+      <div className="space-y-8">
+        <header className="space-y-2">
+          <h1 className="display-2 text-3xl">
+            {firstName ? `Welcome, ${firstName}` : 'Welcome'}
+          </h1>
+          <p className="text-muted-foreground text-sm">
+            Cognify answers questions about a PDF using only what that document
+            says, and shows you the passages it used.
+          </p>
+        </header>
+
+        <ol className="divide-y border-t border-b">
+          {gettingStarted.map((step, index) => (
+            <li key={step} className="flex gap-4 py-3">
+              <span className="rail tabular pt-px">{index + 1}</span>
+              <span className="min-w-0 flex-1 text-sm">{step}</span>
+            </li>
+          ))}
+        </ol>
+
+        <Button asChild>
+          <Link href="/dashboard/documents">Upload a PDF</Link>
+        </Button>
+      </div>
+    );
+  }
 
   return (
-    <main className="space-y-6">
-      {/* Welcome Section */}
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Welcome back!</h1>
-        <p className="text-muted-foreground mt-1">{userName}</p>
-      </div>
+    <div className="space-y-10">
+      <header className="space-y-1">
+        <h1 className="display-2 text-3xl">
+          {firstName ? `Welcome back, ${firstName}` : 'Overview'}
+        </h1>
+        <p className="tabular text-muted-foreground text-sm">
+          {usage?.documents_uploaded ?? 0} of {FREE_TIER_LIMITS.documents}{' '}
+          documents, {usage?.queries_made ?? 0} of {FREE_TIER_LIMITS.queries}{' '}
+          questions this month
+        </p>
+      </header>
 
-      {/* Stats Grid */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <StatsCard
-          title="Documents Uploaded"
-          current={documentsUploaded}
-          limit={FREE_TIER_LIMITS.documents}
-          icon={FileText}
-        />
-        <StatsCard
-          title="Queries Made"
-          current={queriesMade}
-          limit={FREE_TIER_LIMITS.queries}
-          icon={MessageSquare}
-        />
-        <StatsCard
-          title="Tokens Consumed"
-          current={tokensConsumed}
-          limit={FREE_TIER_LIMITS.tokens}
-          icon={Zap}
-        />
-      </div>
-
-      {/* Quick Actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Quick Actions</CardTitle>
-        </CardHeader>
-        <CardContent className="flex gap-4">
-          <Link href="/dashboard/documents">
-            <Button>
-              <FileText className="mr-2 h-4 w-4" />
-              Upload Document
-            </Button>
+      <section className="space-y-3">
+        <div className="flex items-baseline justify-between border-b pb-2">
+          <h2 className="heading text-sm">Documents</h2>
+          <Link
+            href="/dashboard/documents"
+            className="text-primary text-xs underline-offset-4 hover:underline"
+          >
+            All documents
           </Link>
-          <Link href="/dashboard/ask">
-            <Button variant="outline">
-              <MessageSquare className="mr-2 h-4 w-4" />
-              Ask Question
-            </Button>
-          </Link>
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Getting Started */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Getting Started</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex items-center gap-3">
-            <div className="w-6 h-6 rounded-full bg-accent/10 flex items-center justify-center text-sm font-medium text-accent">
-              1
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Upload a PDF document to get started
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="w-6 h-6 rounded-full bg-accent/10 flex items-center justify-center text-sm font-medium text-accent">
-              2
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Wait for processing to complete (usually takes 30-60 seconds)
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="w-6 h-6 rounded-full bg-accent/10 flex items-center justify-center text-sm font-medium text-accent">
-              3
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Ask questions about your document using natural language
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="w-6 h-6 rounded-full bg-accent/10 flex items-center justify-center text-sm font-medium text-accent">
-              4
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Get AI-powered answers based on your document content
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-    </main>
+        <ul className="divide-y border-b">
+          {docs.slice(0, 4).map((doc) => (
+            <li key={doc.id} className="flex items-baseline gap-4 py-3">
+              <span className="rail w-24 text-left">
+                <StatusBadge status={doc.status} />
+              </span>
+              <span className="min-w-0 flex-1 truncate text-sm">
+                {doc.filename}
+              </span>
+              <span className="tabular text-muted-foreground shrink-0 text-xs">
+                {format(new Date(doc.created_at), 'd MMM')}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section className="space-y-3">
+        <div className="flex items-baseline justify-between border-b pb-2">
+          <h2 className="heading text-sm">Recent questions</h2>
+          <Link
+            href="/dashboard/ask"
+            className="text-primary text-xs underline-offset-4 hover:underline"
+          >
+            Ask another
+          </Link>
+        </div>
+
+        {queries.length > 0 ? (
+          <ul className="divide-y border-b">
+            {queries.map((query) => (
+              <li key={query.id} className="flex items-baseline gap-4 py-3">
+                <span className="rail">
+                  {format(new Date(query.created_at), 'd MMM')}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-sm">
+                  {query.query_text}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-muted-foreground text-sm">
+            Nothing asked yet.{' '}
+            <Link
+              href="/dashboard/ask"
+              className="text-primary underline-offset-4 hover:underline"
+            >
+              Ask your first question
+            </Link>
+            .
+          </p>
+        )}
+      </section>
+    </div>
   );
 }

@@ -1,73 +1,83 @@
-'use client';
-
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Zap } from 'lucide-react';
 
+/**
+ * The hero is the product's characteristic moment rather than a claim about
+ * it: an answer, and the passages underneath it that the answer was built
+ * from. The layout mirrors what /dashboard/ask actually renders.
+ */
 export default function Hero() {
   return (
-    <section className="relative pt-32 pb-20 overflow-hidden">
-      {/* Subtle background elements */}
-      <div className="absolute top-0 right-0 w-96 h-96 bg-accent/5 rounded-full blur-3xl -z-10" />
-      <div className="absolute bottom-0 left-0 w-96 h-96 bg-accent/5 rounded-full blur-3xl -z-10" />
+    <section className="mx-auto max-w-5xl px-5 pt-16 pb-20 md:pt-24">
+      <div className="max-w-2xl">
+        <h1 className="display-1">Answers you can check.</h1>
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent/10 border border-accent/20 mb-8">
-          <Zap className="w-4 h-4 text-accent" />
-          <span className="text-sm font-medium text-accent">Powered by AI</span>
-        </div>
-
-        <h1 className="text-5xl sm:text-6xl font-bold text-foreground mb-6 text-balance">
-          Transform Your Documents Into Insights
-        </h1>
-
-        <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto leading-relaxed">
-          Upload your files once and search through them intelligently. Cognify
-          uses advanced RAG and vector embeddings to surface insights instantly,
-          no manual reading required.
+        <p className="text-muted-foreground mt-6 max-w-xl text-lg leading-relaxed">
+          Cognify reads your PDF, answers questions using only what that
+          document says, and shows you the passages it used.
         </p>
 
-        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-          <Button size="lg" className="gap-2 text-base">
-            Start Free Trial
-            <ArrowRight className="w-5 h-5" />
+        <div className="mt-8 flex flex-wrap items-center gap-4">
+          <Button asChild size="lg">
+            <Link href="/auth/signup">Create account</Link>
           </Button>
-          <Button
-            size="lg"
-            variant="outline"
-            className="text-base bg-transparent"
+          <Link
+            href="#how-it-works"
+            className="text-primary text-sm underline-offset-4 hover:underline"
           >
-            View Demo
-          </Button>
-        </div>
-
-        <div className="mt-16 pt-16 border-t border-border">
-          <p className="text-sm text-muted-foreground mb-8">
-            Used by leading companies
-          </p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 items-center justify-center">
-            <div className="flex items-center justify-center">
-              <div className="text-sm font-medium text-muted-foreground">
-                Acme Corp
-              </div>
-            </div>
-            <div className="flex items-center justify-center">
-              <div className="text-sm font-medium text-muted-foreground">
-                TechFlow
-              </div>
-            </div>
-            <div className="flex items-center justify-center">
-              <div className="text-sm font-medium text-muted-foreground">
-                DataSys
-              </div>
-            </div>
-            <div className="flex items-center justify-center">
-              <div className="text-sm font-medium text-muted-foreground">
-                InnovateLabs
-              </div>
-            </div>
-          </div>
+            See how it works
+          </Link>
         </div>
       </div>
+
+      <figure className="bg-card mt-14 rounded-xl border p-6 md:p-8">
+        <figcaption className="text-muted-foreground border-b pb-3 text-xs">
+          An example of what an answer looks like.
+        </figcaption>
+
+        <p className="mt-5 text-sm font-medium">
+          When does the agreement terminate?
+        </p>
+
+        <p className="prose-doc text-foreground mt-4">
+          The agreement terminates on the earlier of two events: 31 December
+          2027, or written notice given by either party 90 days in advance.
+        </p>
+
+        <div className="mt-8 space-y-4">
+          <p className="text-muted-foreground border-b pb-2 text-xs">
+            Passages used, numbered as the answer cites them, with where each
+            sits in the document and how close it was. The closest is
+            highlighted.
+          </p>
+
+          <div className="flex gap-4">
+            <div className="rail w-20 pt-0.5 leading-5">
+              <div className="text-foreground font-medium">1</div>
+              <div>&para;12</div>
+              <div>0.871</div>
+            </div>
+            <p className="prose-doc-sm text-foreground min-w-0 flex-1">
+              <span className="mark-span">
+                This Agreement shall terminate upon the earlier of (a) 31
+                December 2027 or (b) written notice by either party.
+              </span>
+            </p>
+          </div>
+
+          <div className="flex gap-4">
+            <div className="rail w-20 pt-0.5 leading-5">
+              <div className="text-foreground font-medium">2</div>
+              <div>&para;31</div>
+              <div>0.714</div>
+            </div>
+            <p className="prose-doc-sm text-foreground min-w-0 flex-1">
+              Any notice under clause 9 shall be given not less than ninety (90)
+              days before the intended date of termination.
+            </p>
+          </div>
+        </div>
+      </figure>
     </section>
   );
 }
