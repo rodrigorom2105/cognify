@@ -6,6 +6,10 @@ import { after, NextRequest, NextResponse } from 'next/server';
 export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
+  // Every latency recorded for this query is measured from here, so ttft_ms
+  // and total_ms include auth and the ownership check, as a user would feel.
+  const requestStartedAt = Date.now();
+
   try {
     const supabase = await createClient();
 
@@ -50,10 +54,13 @@ export async function POST(request: NextRequest) {
     }
 
     // 1. Embed the query
+    const embedStartedAt = Date.now();
     const { embedding: queryEmbedding, tokens: embeddingTokens } =
       await generateQueryEmbedding(query);
+    const embedMs = Date.now() - embedStartedAt;
 
     // 2. Vector similarity search - top 8 most relevant chunks
+    const retrievalStartedAt = Date.now();
     const { data: chunks, error: searchError } = await supabase.rpc(
       'match_document_chunks',
       {
@@ -62,6 +69,7 @@ export async function POST(request: NextRequest) {
         match_count: 8,
       }
     );
+    const retrievalMs = Date.now() - retrievalStartedAt;
 
     if (searchError) {
       console.error('Vector Search Error:', searchError);
@@ -78,8 +86,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const similarities = chunks.map((chunk) => chunk.similarity);
+
+    // Header values must be ByteStrings (Latin-1). Chunk text is arbitrary
+    // Unicode — math symbols, accents, CJK — and a single character above
+    // U+00FF made the Response constructor throw, failing the whole request.
+    // Built before streaming starts so a failure here cannot leave a query
+    // recorded for an answer that was never sent.
+    const chunksHeader = encodeURIComponent(
+      JSON.stringify(
+        chunks.map((chunk) => ({
+          chunk_index: chunk.chunk_index,
+          similarity: chunk.similarity,
+          preview: chunk.content.slice(0, 150) + '...',
+        }))
+      )
+    );
+
     // 3. Stream answer
-    const { stream, usage } = await streamRAGAnswer(query, {
+    const { stream, usage, timing } = await streamRAGAnswer(query, {
       chunks,
       documentName: document.filename,
     });
@@ -109,6 +134,7 @@ export async function POST(request: NextRequest) {
 
         // Safe to await only now that the stream is drained.
         const { promptTokens, completionTokens, totalTokens } = await usage;
+        const { startedAt, firstTokenAt, completedAt } = await timing;
 
         if (totalTokens === 0) {
           console.warn(
@@ -125,6 +151,17 @@ export async function POST(request: NextRequest) {
           prompt_tokens: promptTokens,
           completion_tokens: completionTokens,
           embedding_tokens: embeddingTokens,
+          embed_ms: embedMs,
+          retrieval_ms: retrievalMs,
+          ttft_ms:
+            firstTokenAt === null ? null : firstTokenAt - requestStartedAt,
+          generation_ms: completedAt - startedAt,
+          total_ms: completedAt - requestStartedAt,
+          chunks_returned: chunks.length,
+          top_similarity: Math.max(...similarities),
+          avg_similarity:
+            similarities.reduce((sum, value) => sum + value, 0) /
+            similarities.length,
         });
 
         if (insertError) {
@@ -167,19 +204,7 @@ export async function POST(request: NextRequest) {
     return new Response(streamForClient, {
       headers: {
         'Content-Type': 'text/plain; charset=utf-8',
-        'X-chunks': JSON.stringify(
-          chunks.map(
-            (chunk: {
-              content: string;
-              chunk_index: number;
-              similarity: number;
-            }) => ({
-              chunk_index: chunk.chunk_index,
-              similarity: chunk.similarity,
-              preview: chunk.content.slice(0, 150) + '...',
-            })
-          )
-        ),
+        'X-chunks': chunksHeader,
         'Transfer-Encoding': 'chunked',
       },
     });

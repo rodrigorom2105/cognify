@@ -380,6 +380,8 @@ export async function extractPDFText(
   return { data: text.trim(), pages: totalPages };
 }
 
+export const CHUNK_INSERT_BATCH_SIZE = 50;
+
 export async function insertChunksInBatches(
   documentId: string,
   chunks: string[],
@@ -402,25 +404,28 @@ export async function insertChunksInBatches(
     },
   }));
 
-  // Insert in batches to avoid payload size limits
-  const BATCH_SIZE = 50;
+  // Insert in batches to avoid payload size limits.
+  //
+  // Upsert on (document_id, chunk_index) so a retried step overwrites the
+  // chunks an earlier attempt already wrote instead of storing them twice.
+  // A failure throws and leaves the document in place: the step retries, and
+  // once retries run out the function marks it failed with the reason.
   let insertedCount = 0;
 
-  for (let i = 0; i < chunksToInsert.length; i += BATCH_SIZE) {
-    const batch = chunksToInsert.slice(i, i + BATCH_SIZE);
+  for (let i = 0; i < chunksToInsert.length; i += CHUNK_INSERT_BATCH_SIZE) {
+    const batch = chunksToInsert.slice(i, i + CHUNK_INSERT_BATCH_SIZE);
 
-    const { error } = await supabase.from('document_chunks').insert(batch);
+    const { error } = await supabase
+      .from('document_chunks')
+      .upsert(batch, { onConflict: 'document_id,chunk_index' });
 
-    // If insert fails, try cleaning up previously inserted chunks
     if (error) {
-      await supabase.from('documents').delete().eq('id', documentId);
-
       throw new Error(`Failed to insert chunks: ${error.message}`);
     }
 
     insertedCount += batch.length;
     console.log(
-      `[Step 3] Inserted batch ${i / BATCH_SIZE + 1}/${Math.ceil(chunksToInsert.length / BATCH_SIZE)} ` +
+      `[Step 3] Inserted batch ${i / CHUNK_INSERT_BATCH_SIZE + 1}/${Math.ceil(chunksToInsert.length / CHUNK_INSERT_BATCH_SIZE)} ` +
         `(${insertedCount}/${chunksToInsert.length} chunks total)`
     );
   }
@@ -431,7 +436,13 @@ export async function updateDocumentStatus(
   documentId: string,
   status: Extract<DocumentStatus, 'ready' | 'failed'>,
   pageCount?: number,
-  metrics?: { embeddingTokens?: number }
+  metrics?: {
+    embeddingTokens?: number;
+    chunkCount?: number;
+    processingStartedAt?: string;
+    processingCompletedAt?: string;
+    processingMetrics?: Json;
+  }
 ): Promise<void> {
   const supabase = await createServiceClient();
 
@@ -446,6 +457,22 @@ export async function updateDocumentStatus(
 
   if (metrics?.embeddingTokens !== undefined) {
     update.embedding_tokens = metrics.embeddingTokens;
+  }
+
+  if (metrics?.chunkCount !== undefined) {
+    update.chunk_count = metrics.chunkCount;
+  }
+
+  if (metrics?.processingStartedAt !== undefined) {
+    update.processing_started_at = metrics.processingStartedAt;
+  }
+
+  if (metrics?.processingCompletedAt !== undefined) {
+    update.processing_completed_at = metrics.processingCompletedAt;
+  }
+
+  if (metrics?.processingMetrics !== undefined) {
+    update.processing_metrics = metrics.processingMetrics;
   }
 
   const { error } = await supabase
