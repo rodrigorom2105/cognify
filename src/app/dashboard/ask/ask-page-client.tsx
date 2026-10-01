@@ -71,7 +71,7 @@ export function AskPageClient({
       const chunksHeader = response.headers.get('X-chunks');
       if (chunksHeader) {
         if (requestIdRef.current !== currentRequestId) return;
-        setChunks(JSON.parse(chunksHeader));
+        setChunks(JSON.parse(decodeURIComponent(chunksHeader)));
       }
 
       // Stream the response body
@@ -106,6 +106,14 @@ export function AskPageClient({
         prompt_tokens: null,
         completion_tokens: null,
         embedding_tokens: null,
+        embed_ms: null,
+        retrieval_ms: null,
+        ttft_ms: null,
+        generation_ms: null,
+        total_ms: null,
+        chunks_returned: null,
+        top_similarity: null,
+        avg_similarity: null,
         created_at: new Date().toISOString(),
       };
       setQueries((prev) => [newQuery, ...prev]);

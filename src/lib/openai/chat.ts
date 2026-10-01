@@ -48,6 +48,17 @@ export interface TokenUsage {
   totalTokens: number;
 }
 
+/**
+ * Wall-clock timestamps (ms since epoch) for a streamed completion.
+ *
+ * `firstTokenAt` is null when the model produced no content at all.
+ */
+export interface StreamTiming {
+  startedAt: number;
+  firstTokenAt: number | null;
+  completedAt: number;
+}
+
 const EMPTY_USAGE: TokenUsage = {
   promptTokens: 0,
   completionTokens: 0,
@@ -65,7 +76,11 @@ const EMPTY_USAGE: TokenUsage = {
 export async function streamRAGAnswer(
   query: string,
   context: RAGContext
-): Promise<{ stream: ReadableStream; usage: Promise<TokenUsage> }> {
+): Promise<{
+  stream: ReadableStream;
+  usage: Promise<TokenUsage>;
+  timing: Promise<StreamTiming>;
+}> {
   const messages: ChatMessage[] = [
     { role: 'system', content: buildSystemPrompt(context) },
     { role: 'user', content: query },
@@ -76,10 +91,18 @@ export async function streamRAGAnswer(
     settleUsage = resolve;
   });
 
+  // Settled alongside `usage`, so it carries the same await-after-drain rule.
+  let settleTiming: (timing: StreamTiming) => void;
+  const timing = new Promise<StreamTiming>((resolve) => {
+    settleTiming = resolve;
+  });
+
   const stream = new ReadableStream({
     async start(controller) {
       // Whatever was captured before a failure is still worth recording.
       let captured: TokenUsage = EMPTY_USAGE;
+      const startedAt = Date.now();
+      let firstTokenAt: number | null = null;
 
       try {
         const completion = await openai.chat.completions.create({
@@ -96,6 +119,7 @@ export async function streamRAGAnswer(
         for await (const chunk of completion) {
           const delta = chunk.choices[0]?.delta?.content;
           if (delta) {
+            firstTokenAt ??= Date.now();
             controller.enqueue(new TextEncoder().encode(delta));
           }
 
@@ -111,13 +135,15 @@ export async function streamRAGAnswer(
 
         controller.close();
         settleUsage(captured);
+        settleTiming({ startedAt, firstTokenAt, completedAt: Date.now() });
       } catch (error) {
         // Settle before erroring the stream so an awaiting caller cannot hang.
         settleUsage(captured);
+        settleTiming({ startedAt, firstTokenAt, completedAt: Date.now() });
         controller.error(error);
       }
     },
   });
 
-  return { stream, usage };
+  return { stream, usage, timing };
 }

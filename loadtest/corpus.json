@@ -1,0 +1,257 @@
+{
+  "description": "Public arXiv papers used by scripts/loadtest.mjs. All under 4.3 MB so a multipart upload stays below Vercel's 4.5 MB request-body cap.",
+  "questions": [
+    "What problem does this paper set out to solve?",
+    "What method or architecture do the authors propose?",
+    "How is the approach evaluated, and on which datasets or benchmarks?",
+    "What are the main quantitative results?",
+    "What limitations or future work do the authors mention?"
+  ],
+  "outOfScopeQuestions": [
+    "What is the recommended daily water intake for adults?",
+    "Who won the 1998 FIFA World Cup?",
+    "What is the boiling point of water at the top of Mount Everest?"
+  ],
+  "documents": [
+    {
+      "file": "arxiv-1706.03762.pdf",
+      "url": "https://arxiv.org/pdf/1706.03762"
+    },
+    {
+      "file": "arxiv-1810.04805.pdf",
+      "url": "https://arxiv.org/pdf/1810.04805"
+    },
+    {
+      "file": "arxiv-2005.11401.pdf",
+      "url": "https://arxiv.org/pdf/2005.11401"
+    },
+    {
+      "file": "arxiv-1512.03385.pdf",
+      "url": "https://arxiv.org/pdf/1512.03385"
+    },
+    {
+      "file": "arxiv-1301.3781.pdf",
+      "url": "https://arxiv.org/pdf/1301.3781"
+    },
+    {
+      "file": "arxiv-1409.0473.pdf",
+      "url": "https://arxiv.org/pdf/1409.0473"
+    },
+    {
+      "file": "arxiv-1412.6980.pdf",
+      "url": "https://arxiv.org/pdf/1412.6980"
+    },
+    {
+      "file": "arxiv-2106.09685.pdf",
+      "url": "https://arxiv.org/pdf/2106.09685"
+    },
+    {
+      "file": "arxiv-2201.11903.pdf",
+      "url": "https://arxiv.org/pdf/2201.11903"
+    },
+    {
+      "file": "arxiv-2203.02155.pdf",
+      "url": "https://arxiv.org/pdf/2203.02155"
+    },
+    {
+      "file": "arxiv-1406.2661.pdf",
+      "url": "https://arxiv.org/pdf/1406.2661"
+    },
+    {
+      "file": "arxiv-1312.6114.pdf",
+      "url": "https://arxiv.org/pdf/1312.6114"
+    },
+    {
+      "file": "arxiv-2302.13971.pdf",
+      "url": "https://arxiv.org/pdf/2302.13971"
+    },
+    {
+      "file": "arxiv-1907.11692.pdf",
+      "url": "https://arxiv.org/pdf/1907.11692"
+    },
+    {
+      "file": "arxiv-1910.10683.pdf",
+      "url": "https://arxiv.org/pdf/1910.10683"
+    },
+    {
+      "file": "arxiv-2104.09864.pdf",
+      "url": "https://arxiv.org/pdf/2104.09864"
+    },
+    {
+      "file": "arxiv-2205.14135.pdf",
+      "url": "https://arxiv.org/pdf/2205.14135"
+    },
+    {
+      "file": "arxiv-1503.02531.pdf",
+      "url": "https://arxiv.org/pdf/1503.02531"
+    },
+    {
+      "file": "arxiv-2210.03629.pdf",
+      "url": "https://arxiv.org/pdf/2210.03629"
+    },
+    {
+      "file": "arxiv-2112.04426.pdf",
+      "url": "https://arxiv.org/pdf/2112.04426"
+    },
+    {
+      "file": "arxiv-2004.04906.pdf",
+      "url": "https://arxiv.org/pdf/2004.04906"
+    },
+    {
+      "file": "arxiv-1908.10084.pdf",
+      "url": "https://arxiv.org/pdf/1908.10084"
+    },
+    {
+      "file": "arxiv-2212.10496.pdf",
+      "url": "https://arxiv.org/pdf/2212.10496"
+    },
+    {
+      "file": "arxiv-2310.11511.pdf",
+      "url": "https://arxiv.org/pdf/2310.11511"
+    },
+    {
+      "file": "arxiv-2312.10997.pdf",
+      "url": "https://arxiv.org/pdf/2312.10997"
+    },
+    {
+      "file": "arxiv-1607.06450.pdf",
+      "url": "https://arxiv.org/pdf/1607.06450"
+    },
+    {
+      "file": "arxiv-1502.03167.pdf",
+      "url": "https://arxiv.org/pdf/1502.03167"
+    },
+    {
+      "file": "arxiv-1207.0580.pdf",
+      "url": "https://arxiv.org/pdf/1207.0580"
+    },
+    {
+      "file": "arxiv-1505.04597.pdf",
+      "url": "https://arxiv.org/pdf/1505.04597"
+    },
+    {
+      "file": "arxiv-1409.1556.pdf",
+      "url": "https://arxiv.org/pdf/1409.1556"
+    },
+    {
+      "file": "arxiv-1608.06993.pdf",
+      "url": "https://arxiv.org/pdf/1608.06993"
+    },
+    {
+      "file": "arxiv-2010.11929.pdf",
+      "url": "https://arxiv.org/pdf/2010.11929"
+    },
+    {
+      "file": "arxiv-1707.06347.pdf",
+      "url": "https://arxiv.org/pdf/1707.06347"
+    },
+    {
+      "file": "arxiv-1312.5602.pdf",
+      "url": "https://arxiv.org/pdf/1312.5602"
+    },
+    {
+      "file": "arxiv-1509.02971.pdf",
+      "url": "https://arxiv.org/pdf/1509.02971"
+    },
+    {
+      "file": "arxiv-2009.01325.pdf",
+      "url": "https://arxiv.org/pdf/2009.01325"
+    },
+    {
+      "file": "arxiv-2305.18290.pdf",
+      "url": "https://arxiv.org/pdf/2305.18290"
+    },
+    {
+      "file": "arxiv-2001.08361.pdf",
+      "url": "https://arxiv.org/pdf/2001.08361"
+    },
+    {
+      "file": "arxiv-1606.08415.pdf",
+      "url": "https://arxiv.org/pdf/1606.08415"
+    },
+    {
+      "file": "arxiv-2002.05202.pdf",
+      "url": "https://arxiv.org/pdf/2002.05202"
+    },
+    {
+      "file": "arxiv-1911.02150.pdf",
+      "url": "https://arxiv.org/pdf/1911.02150"
+    },
+    {
+      "file": "arxiv-2305.13245.pdf",
+      "url": "https://arxiv.org/pdf/2305.13245"
+    },
+    {
+      "file": "arxiv-2309.06180.pdf",
+      "url": "https://arxiv.org/pdf/2309.06180"
+    },
+    {
+      "file": "arxiv-1701.06538.pdf",
+      "url": "https://arxiv.org/pdf/1701.06538"
+    },
+    {
+      "file": "arxiv-2101.03961.pdf",
+      "url": "https://arxiv.org/pdf/2101.03961"
+    },
+    {
+      "file": "arxiv-2306.05685.pdf",
+      "url": "https://arxiv.org/pdf/2306.05685"
+    },
+    {
+      "file": "arxiv-2009.03300.pdf",
+      "url": "https://arxiv.org/pdf/2009.03300"
+    },
+    {
+      "file": "arxiv-2107.03374.pdf",
+      "url": "https://arxiv.org/pdf/2107.03374"
+    },
+    {
+      "file": "arxiv-1802.05365.pdf",
+      "url": "https://arxiv.org/pdf/1802.05365"
+    },
+    {
+      "file": "arxiv-1801.06146.pdf",
+      "url": "https://arxiv.org/pdf/1801.06146"
+    },
+    {
+      "file": "arxiv-2307.03172.pdf",
+      "url": "https://arxiv.org/pdf/2307.03172"
+    },
+    {
+      "file": "arxiv-2302.04761.pdf",
+      "url": "https://arxiv.org/pdf/2302.04761"
+    },
+    {
+      "file": "arxiv-2309.15217.pdf",
+      "url": "https://arxiv.org/pdf/2309.15217"
+    },
+    {
+      "file": "arxiv-2401.18059.pdf",
+      "url": "https://arxiv.org/pdf/2401.18059"
+    },
+    {
+      "file": "arxiv-1611.01603.pdf",
+      "url": "https://arxiv.org/pdf/1611.01603"
+    },
+    {
+      "file": "arxiv-1603.05027.pdf",
+      "url": "https://arxiv.org/pdf/1603.05027"
+    },
+    {
+      "file": "arxiv-2206.07682.pdf",
+      "url": "https://arxiv.org/pdf/2206.07682"
+    },
+    {
+      "file": "arxiv-2204.02311.pdf",
+      "url": "https://arxiv.org/pdf/2204.02311"
+    },
+    {
+      "file": "arxiv-1412.3555.pdf",
+      "url": "https://arxiv.org/pdf/1412.3555"
+    },
+    {
+      "file": "arxiv-1508.07909.pdf",
+      "url": "https://arxiv.org/pdf/1508.07909"
+    }
+  ]
+}
