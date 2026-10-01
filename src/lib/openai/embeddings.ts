@@ -39,8 +39,11 @@ export async function generateEmbeddingsWithUsage(
     };
   } catch (error) {
     console.error('OpenAI Embedding Error:', error);
+    // Keep the original as `cause` so callers can still tell a rate limit
+    // apart from any other failure.
     throw new Error(
-      `Failed to generate embeddings: ${error instanceof Error ? error.message : 'Unknown error'}`
+      `Failed to generate embeddings: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      { cause: error }
     );
   }
 }

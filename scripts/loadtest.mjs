@@ -209,43 +209,88 @@ async function signInCookies(email, password) {
   return [...jar].map(([name, value]) => `${name}=${value}`).join('; ');
 }
 
-async function uploadDocument(baseUrl, cookie, filePath, filename) {
-  const buffer = await fs.readFile(filePath);
-  const form = new FormData();
-  form.append(
-    'file',
-    new Blob([buffer], { type: 'application/pdf' }),
-    filename
-  );
-
-  const startedAt = Date.now();
-  const response = await fetch(`${baseUrl}/api/documents`, {
+async function postJson(baseUrl, cookie, route, payload) {
+  const response = await fetch(`${baseUrl}${route}`, {
     method: 'POST',
-    headers: { cookie },
-    body: form,
+    headers: { cookie, 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
     // The auth proxy answers an unauthenticated request with a redirect to
     // the login page; following it would turn an auth failure into HTML.
     redirect: 'manual',
   });
-  const elapsedMs = Date.now() - startedAt;
-
   let body = null;
   try {
     body = await response.json();
   } catch {
-    // non-JSON (redirect, 413 from the platform, …)
+    // non-JSON (redirect, platform error page, …)
   }
+  return { status: response.status, body, statusText: response.statusText };
+}
 
-  return {
+/**
+ * Same three hops as the dashboard's upload: signed URL from the app, the
+ * PDF straight to Supabase Storage, then registration with the app.
+ */
+async function uploadDocument(baseUrl, cookie, filePath, filename) {
+  const buffer = await fs.readFile(filePath);
+  const startedAt = Date.now();
+  const result = {
     filename,
     bytes: buffer.length,
-    status: response.status,
-    ok: response.status === 201,
-    documentId: body?.documentId ?? null,
-    message: body?.message ?? body?.error ?? response.statusText,
-    uploadMs: elapsedMs,
+    status: null,
+    ok: false,
+    documentId: null,
+    message: null,
+    uploadMs: null,
     uploadStartedAt: new Date(startedAt).toISOString(),
   };
+  const finish = (status, message) => {
+    result.status = status;
+    result.message = message;
+    result.uploadMs = Date.now() - startedAt;
+    return result;
+  };
+
+  const prepared = await postJson(
+    baseUrl,
+    cookie,
+    '/api/documents/upload-url',
+    {
+      name: filename,
+      type: 'application/pdf',
+      size: buffer.length,
+    }
+  );
+  if (!prepared.body?.success) {
+    return finish(
+      prepared.status,
+      prepared.body?.message ?? prepared.statusText
+    );
+  }
+
+  const storage = createClient(
+    requireEnv('NEXT_PUBLIC_SUPABASE_URL'),
+    requireEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
+    { auth: { persistSession: false, autoRefreshToken: false } }
+  ).storage.from(DOCUMENTS_BUCKET);
+  const { error: storageError } = await storage.uploadToSignedUrl(
+    prepared.body.storagePath,
+    prepared.body.token,
+    new Blob([buffer], { type: 'application/pdf' }),
+    { contentType: 'application/pdf' }
+  );
+  if (storageError) return finish(0, `storage: ${storageError.message}`);
+
+  const completed = await postJson(baseUrl, cookie, '/api/documents', {
+    storagePath: prepared.body.storagePath,
+    filename,
+  });
+  result.ok = completed.status === 201;
+  result.documentId = completed.body?.documentId ?? null;
+  return finish(
+    completed.status,
+    completed.body?.message ?? completed.body?.error ?? completed.statusText
+  );
 }
 
 async function waitForReady(admin, upload) {

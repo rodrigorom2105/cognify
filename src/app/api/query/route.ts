@@ -1,4 +1,4 @@
-import { streamRAGAnswer } from '@/lib/openai/chat';
+import { isRateLimitError, streamRAGAnswer } from '@/lib/openai/chat';
 import { generateQueryEmbedding } from '@/lib/openai/embeddings';
 import { createClient } from '@/lib/supabase/server';
 import { after, NextRequest, NextResponse } from 'next/server';
@@ -210,6 +210,19 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Query API Error:', error);
+
+    // OpenAI's per-minute token limit is shared by every user, so under load
+    // this is a temporary condition, not a fault in the request.
+    if (isRateLimitError(error)) {
+      return NextResponse.json(
+        {
+          error:
+            'Cognify is answering a lot of questions right now. Try again in a few seconds.',
+        },
+        { status: 429, headers: { 'Retry-After': '10' } }
+      );
+    }
+
     return NextResponse.json(
       { error: 'An unexpected error occurred' },
       { status: 500 }

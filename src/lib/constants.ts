@@ -10,3 +10,9 @@ export const FREE_TIER_LIMITS = {
   queries: 100,
   tokens: 1_000_000,
 } as const;
+
+/**
+ * Largest PDF a user can upload, in bytes. Enforced by the upload action and
+ * by the `documents` bucket's own file_size_limit, which must match.
+ */
+export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;

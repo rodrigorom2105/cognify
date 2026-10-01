@@ -27,6 +27,10 @@ export function normalizeExtractedText(text: string): string {
   if (!text) return '';
 
   const normalized = text
+    // Some PDFs encode NUL and other control characters into their text
+    // layer. Postgres rejects \u0000 in jsonb and text, which failed the
+    // processing_temp handoff before a single chunk was embedded.
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n')
     // Re-join hyphenated words split by line breaks.
@@ -177,9 +181,16 @@ export function chunkText(
           ? overlapText + '\n\n' + paragraph
           : paragraph;
       } else {
-        // Single paragraph is longer than chunk size, need to split it
+        currentChunk = paragraph;
+      }
+
+      // A paragraph longer than the chunk size has to be split wherever it
+      // lands, not only when it opens a fresh chunk. Splitting only in that
+      // case let a 16,000-character paragraph through whole after a full
+      // chunk, past the embedding model's 8,192-token input limit.
+      if (currentChunk.length > chunkSize) {
         const splitParagraphs = splitLongParagraph(
-          paragraph,
+          currentChunk,
           chunkSize,
           overlap
         );
@@ -286,20 +297,15 @@ function splitLongParagraph(
         const overlapText = getOverlapText(previousChunk, overlap);
         currentChunk = overlapText ? overlapText + ' ' + sentence : sentence;
       } else {
-        // Single sentence longer than chunk size, force split
-        const words = sentence.split(/\s+/);
-        let wordChunk = '';
+        currentChunk = sentence;
+      }
 
-        for (const word of words) {
-          if ((wordChunk + ' ' + word).length <= chunkSize) {
-            wordChunk = wordChunk ? wordChunk + ' ' + word : word;
-          } else {
-            if (wordChunk) chunks.push(wordChunk);
-            wordChunk = word;
-          }
-        }
-
-        if (wordChunk) currentChunk = wordChunk;
+      // Same rule one level down: a sentence longer than the chunk size is
+      // force-split on words wherever it lands, not only at a fresh chunk.
+      if (currentChunk.length > chunkSize) {
+        const pieces = splitOnWords(currentChunk, chunkSize);
+        chunks.push(...pieces.slice(0, -1));
+        currentChunk = pieces[pieces.length - 1] ?? '';
       }
     }
   }
@@ -309,6 +315,38 @@ function splitLongParagraph(
   }
 
   return chunks;
+}
+
+/**
+ * Pack words into pieces no longer than `chunkSize`, with no overlap.
+ * Last resort for a sentence too long to split on punctuation.
+ */
+function splitOnWords(text: string, chunkSize: number): string[] {
+  // A single run of text with no whitespace (a URL, a hash, a table
+  // extracted without spaces) cannot be split on words at all.
+  const words = text
+    .split(/\s+/)
+    .flatMap((word) =>
+      word.length <= chunkSize
+        ? [word]
+        : (word.match(new RegExp(`.{1,${chunkSize}}`, 'gs')) ?? [])
+    );
+
+  const pieces: string[] = [];
+  let piece = '';
+
+  for (const word of words) {
+    if (!word) continue;
+    if ((piece + ' ' + word).length <= chunkSize) {
+      piece = piece ? piece + ' ' + word : word;
+    } else {
+      if (piece) pieces.push(piece);
+      piece = word;
+    }
+  }
+
+  if (piece) pieces.push(piece);
+  return pieces;
 }
 
 /**

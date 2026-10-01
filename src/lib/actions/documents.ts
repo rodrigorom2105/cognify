@@ -3,29 +3,58 @@
 import { createClient } from '@/lib/supabase/server';
 import { inngest } from '@/lib/inngest/client';
 import { revalidatePath } from 'next/cache';
-import { FREE_TIER_LIMITS } from '@/lib/constants';
+import { FREE_TIER_LIMITS, MAX_UPLOAD_BYTES } from '@/lib/constants';
+
+const DOCUMENTS_BUCKET = 'documents';
+
+type PrepareUploadResult =
+  | { success: true; storagePath: string; token: string }
+  | { success: false; message: string };
+
+type CompleteUploadResult =
+  | { success: true; message: string; documentId: string }
+  | { success: false; message: string; documentId?: string; error?: string };
+
+function validatePdf(type: string, size: number): string | null {
+  if (!type.includes('pdf')) return 'Only PDF files are allowed';
+  if (size > MAX_UPLOAD_BYTES)
+    return `File size exceeds ${MAX_UPLOAD_BYTES / 1024 / 1024}MB limit`;
+  return null;
+}
+
+async function hasUploadQuota(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string
+): Promise<boolean> {
+  const { data: usage, error } = await supabase
+    .from('user_usage')
+    .select('documents_uploaded')
+    .eq('user_id', userId)
+    .single();
+
+  if (error) {
+    throw new Error(`Failed to fetch user usage: ${error.message}`);
+  }
+
+  return !usage || usage.documents_uploaded < FREE_TIER_LIMITS.documents;
+}
+
 /**
- * Upload a document and trigger background processing
+ * Step 1 of an upload: validate the file and hand back a signed upload URL.
  *
- * Steps:
- * 1. Validate file (PDF only, max 10MB)
- * 2. Check user's upload limit (10 documents/month for free tier)
- * 3. Upload file to Supabase Storage
- * 4. Create document record in database
- * 5. Trigger Inngest processing job
- *
- * @param formData - FormData containing the PDF file
- * @returns Success message or error
+ * The browser uploads the PDF straight to Supabase Storage with the returned
+ * token, then calls `completeUpload`. Sending the file through a server action
+ * or route instead capped uploads at Vercel's 4.5 MB request-body limit, below
+ * the 10 MB the app advertises. The bucket enforces the same size and type
+ * limits, so a client that skips this check is still refused.
  */
-export async function uploadDocument(formData: FormData) {
+export async function prepareUpload(file: {
+  name: string;
+  type: string;
+  size: number;
+}): Promise<PrepareUploadResult> {
   try {
-    // Extract file from FormData
-    const file = formData.get('file') as File;
-
-    // Create a Supabase client
     const supabase = await createClient();
-
-    // Get authenticated user
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -36,41 +65,79 @@ export async function uploadDocument(formData: FormData) {
         message: 'You must be logged in to upload documents',
       };
 
-    // Validate file exists, is PDF, under 10MB
-    if (!file) return { success: false, message: 'No file provided' };
-    if (!file.type.includes('pdf'))
-      return { success: false, message: 'Only PDF files are allowed' };
-    if (file.size > 10 * 1024 * 1024)
-      return { success: false, message: 'File size exceeds 10MB limit' };
+    const invalid = validatePdf(file.type, file.size);
+    if (invalid) return { success: false, message: invalid };
 
-    // Check user hasn't exceeded 10 documents uploaded
-    const { data: usage, error: usageQueryError } = await supabase
-      .from('user_usage')
-      .select('documents_uploaded')
-      .eq('user_id', user.id)
-      .single();
-
-    if (usageQueryError) {
-      throw new Error(`Failed to fetch user usage: ${usageQueryError.message}`);
-    }
-
-    if (usage && usage.documents_uploaded >= FREE_TIER_LIMITS.documents) {
+    if (!(await hasUploadQuota(supabase, user.id))) {
       return { success: false, message: 'Document upload limit reached' };
     }
 
-    // Generate unique filename: ${Date.now()}-${originalName}
-    const uniqueFilename = `${Date.now()}-${file.name}`;
+    // documents/${userId}/${Date.now()}-${originalName}; the storage RLS
+    // policy only lets a user write under their own id.
+    const { data, error } = await supabase.storage
+      .from(DOCUMENTS_BUCKET)
+      .createSignedUploadUrl(`${user.id}/${Date.now()}-${file.name}`);
 
-    // Upload to Storage: documents/${userId}/${uniqueFilename}
-    const { data, error: uploadError } = await supabase.storage
-      .from('documents')
-      .upload(`${user.id}/${uniqueFilename}`, file);
-
-    if (uploadError) {
-      throw new Error(`File upload failed: ${uploadError.message}`);
+    if (error || !data) {
+      throw new Error(`Failed to create upload URL: ${error?.message}`);
     }
 
-    const storagePath = data.path;
+    return { success: true, storagePath: data.path, token: data.token };
+  } catch (error) {
+    console.error('Prepare upload error:', error);
+    return { success: false, message: 'An unexpected error occurred' };
+  }
+}
+
+/**
+ * Step 2 of an upload: register the stored PDF and trigger processing.
+ *
+ * Steps:
+ * 1. Confirm the object exists under the caller's folder, and re-check its
+ *    real size and type from Storage rather than trusting the client
+ * 2. Re-check the upload limit (another upload may have finished meanwhile)
+ * 3. Create the document record and increment usage
+ * 4. Trigger the Inngest processing job
+ */
+export async function completeUpload(
+  storagePath: string,
+  filename: string
+): Promise<CompleteUploadResult> {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user)
+      return {
+        success: false,
+        message: 'You must be logged in to upload documents',
+      };
+
+    if (!storagePath.startsWith(`${user.id}/`)) {
+      return { success: false, message: 'Invalid upload path' };
+    }
+
+    const { data: object, error: infoError } = await supabase.storage
+      .from(DOCUMENTS_BUCKET)
+      .info(storagePath);
+
+    if (infoError || !object) {
+      return { success: false, message: 'Uploaded file not found' };
+    }
+
+    const size = object.size ?? 0;
+    const invalid = validatePdf(object.contentType ?? '', size);
+    const overQuota = !invalid && !(await hasUploadQuota(supabase, user.id));
+
+    if (invalid || overQuota) {
+      await supabase.storage.from(DOCUMENTS_BUCKET).remove([storagePath]);
+      return {
+        success: false,
+        message: invalid ?? 'Document upload limit reached',
+      };
+    }
 
     try {
       // Create database record
@@ -78,10 +145,10 @@ export async function uploadDocument(formData: FormData) {
         .from('documents')
         .insert({
           user_id: user.id,
-          filename: file.name,
+          filename,
           storage_path: storagePath,
           status: 'processing',
-          file_size_bytes: file.size,
+          file_size_bytes: size,
         })
         .select()
         .single();
@@ -112,8 +179,8 @@ export async function uploadDocument(formData: FormData) {
           data: {
             documentId: document.id,
             userId: user.id,
-            storagePath: storagePath,
-            filename: file.name,
+            storagePath,
+            filename,
           },
         });
       } catch (inngestError) {
@@ -155,7 +222,7 @@ export async function uploadDocument(formData: FormData) {
       };
     } catch (dbError) {
       // If database operations fail, clean up the uploaded file
-      await supabase.storage.from('documents').remove([storagePath]);
+      await supabase.storage.from(DOCUMENTS_BUCKET).remove([storagePath]);
       throw dbError;
     }
   } catch (error) {

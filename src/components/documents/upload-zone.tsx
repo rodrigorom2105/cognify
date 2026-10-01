@@ -2,9 +2,39 @@
 
 import { cn } from '@/lib/utils';
 import React, { useCallback, useState } from 'react';
-import { uploadDocument } from '@/lib/actions/documents';
+import { completeUpload, prepareUpload } from '@/lib/actions/documents';
+import { MAX_UPLOAD_BYTES } from '@/lib/constants';
+import { createClient } from '@/lib/supabase/client';
 
-const MAX_SIZE_MB = 10;
+const MAX_SIZE_MB = MAX_UPLOAD_BYTES / 1024 / 1024;
+
+/**
+ * Upload in three hops so the PDF never passes through a Vercel function,
+ * whose 4.5 MB request-body cap is below the 10 MB limit: get a signed upload
+ * URL, send the file straight to Supabase Storage, then register it.
+ */
+async function uploadFile(file: File) {
+  const prepared = await prepareUpload({
+    name: file.name,
+    type: file.type,
+    size: file.size,
+  });
+  if (!prepared.success) return prepared;
+
+  const { error } = await createClient()
+    .storage.from('documents')
+    .uploadToSignedUrl(prepared.storagePath, prepared.token, file, {
+      contentType: file.type,
+    });
+  if (error) {
+    return {
+      success: false as const,
+      message: `Upload failed: ${error.message}`,
+    };
+  }
+
+  return completeUpload(prepared.storagePath, file.name);
+}
 
 export default function UploadZone() {
   const [isUploading, setIsUploading] = useState(false);
@@ -36,12 +66,9 @@ export default function UploadZone() {
       setError(null);
       setStatus(`Uploading ${file.name}`);
 
-      const formData = new FormData();
-      formData.append('file', file);
-
       setIsUploading(true);
 
-      uploadDocument(formData)
+      uploadFile(file)
         .then((result) => {
           if (!result.success) {
             setError(result.message);
@@ -50,6 +77,12 @@ export default function UploadZone() {
             setError(null);
             setStatus(`Uploaded ${file.name}. Processing has started.`);
           }
+        })
+        .catch(() => {
+          setError(
+            'The upload did not finish. Check your connection and try again.'
+          );
+          setStatus(null);
         })
         .finally(() => setIsUploading(false));
     },
