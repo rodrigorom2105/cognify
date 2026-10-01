@@ -64,36 +64,51 @@ export type Database = {
       }
       documents: {
         Row: {
+          chunk_count: number | null
           created_at: string
           embedding_tokens: number | null
+          error_message: string | null
           file_size_bytes: number
           filename: string
           id: string
           page_count: number | null
+          processing_completed_at: string | null
+          processing_metrics: Json | null
+          processing_started_at: string | null
           status: string
           storage_path: string
           updated_at: string
           user_id: string
         }
         Insert: {
+          chunk_count?: number | null
           created_at?: string
           embedding_tokens?: number | null
+          error_message?: string | null
           file_size_bytes: number
           filename: string
           id?: string
           page_count?: number | null
+          processing_completed_at?: string | null
+          processing_metrics?: Json | null
+          processing_started_at?: string | null
           status?: string
           storage_path: string
           updated_at?: string
           user_id: string
         }
         Update: {
+          chunk_count?: number | null
           created_at?: string
           embedding_tokens?: number | null
+          error_message?: string | null
           file_size_bytes?: number
           filename?: string
           id?: string
           page_count?: number | null
+          processing_completed_at?: string | null
+          processing_metrics?: Json | null
+          processing_started_at?: string | null
           status?: string
           storage_path?: string
           updated_at?: string
@@ -136,38 +151,62 @@ export type Database = {
       queries: {
         Row: {
           answer_text: string | null
+          avg_similarity: number | null
+          chunks_returned: number | null
           completion_tokens: number | null
           created_at: string
           document_id: string | null
+          embed_ms: number | null
           embedding_tokens: number | null
+          generation_ms: number | null
           id: string
           prompt_tokens: number | null
           query_text: string
+          retrieval_ms: number | null
           tokens_used: number | null
+          top_similarity: number | null
+          total_ms: number | null
+          ttft_ms: number | null
           user_id: string
         }
         Insert: {
           answer_text?: string | null
+          avg_similarity?: number | null
+          chunks_returned?: number | null
           completion_tokens?: number | null
           created_at?: string
           document_id?: string | null
+          embed_ms?: number | null
           embedding_tokens?: number | null
+          generation_ms?: number | null
           id?: string
           prompt_tokens?: number | null
           query_text: string
+          retrieval_ms?: number | null
           tokens_used?: number | null
+          top_similarity?: number | null
+          total_ms?: number | null
+          ttft_ms?: number | null
           user_id: string
         }
         Update: {
           answer_text?: string | null
+          avg_similarity?: number | null
+          chunks_returned?: number | null
           completion_tokens?: number | null
           created_at?: string
           document_id?: string | null
+          embed_ms?: number | null
           embedding_tokens?: number | null
+          generation_ms?: number | null
           id?: string
           prompt_tokens?: number | null
           query_text?: string
+          retrieval_ms?: number | null
           tokens_used?: number | null
+          top_similarity?: number | null
+          total_ms?: number | null
+          ttft_ms?: number | null
           user_id?: string
         }
         Relationships: [
@@ -293,12 +332,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -322,11 +361,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -347,11 +386,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -372,11 +411,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -389,11 +428,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
