@@ -1,5 +1,5 @@
 {
-  "description": "Public arXiv papers used by scripts/loadtest.mjs. All under 4.3 MB so a multipart upload stays below Vercel's 4.5 MB request-body cap.",
+  "description": "Public arXiv papers used by scripts/loadtest.mjs. All under 4.3 MB: the first load test ran before uploads bypassed Vercel's 4.5 MB request-body cap, and the corpus is kept identical so later runs stay comparable.",
   "questions": [
     "What problem does this paper set out to solve?",
     "What method or architecture do the authors propose?",

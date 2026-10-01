@@ -18,7 +18,7 @@ Documents are processed in the background: the text is extracted, chunked, embed
 
 ## How it works
 
-**Ingestion** — `uploadDocument` (`src/lib/actions/documents.ts`) validates the file, stores it in Supabase Storage, inserts a `documents` row with status `processing`, and emits a `document.uploaded` event. The Inngest function `process-document` then runs three steps:
+**Ingestion** — uploads skip the app server: `prepareUpload` (`src/lib/actions/documents.ts`) validates the file and returns a signed Storage upload URL, the browser sends the PDF straight to Supabase Storage, and `completeUpload` re-checks the stored object's size and type, inserts a `documents` row with status `processing`, and emits a `document.uploaded` event. Routing the file through a server action capped uploads at Vercel's 4.5 MB request-body limit; the `documents` bucket enforces the 10 MB / PDF-only limits itself. The Inngest function `process-document` then runs three steps:
 
 1. **Extract and chunk** — pull text with `unpdf`, normalize it, split into chunks of 1500 characters with 300 overlap (350 minimum).
 2. **Embed** — generate embeddings in batches of 100.
@@ -215,7 +215,7 @@ Each `queries` row also records `embed_ms`, `retrieval_ms`, `ttft_ms` (request r
 
 ## Load testing
 
-`scripts/loadtest.mjs` drives a deployed instance through the same HTTP surface the dashboard uses — `POST /api/documents` (a thin wrapper over the `uploadDocument` server action) and `POST /api/query` — so ingestion runs on the real Inngest environment.
+`scripts/loadtest.mjs` drives a deployed instance through the same HTTP surface the dashboard uses — `POST /api/documents/upload-url` and `POST /api/documents` (thin wrappers over the `prepareUpload` and `completeUpload` server actions, with the PDF going straight to Storage in between) and `POST /api/query` — so ingestion runs on the real Inngest environment.
 
 ```bash
 pnpm loadtest fetch                                    # download the corpus in loadtest/corpus.json
@@ -227,7 +227,6 @@ pnpm loadtest cleanup --run <runId>                    # delete the run's users,
 - Test users are created through the admin API with `email_confirm: true` — sign-up sends a confirmation email, and Supabase's built-in mailer allows only a few per hour. Every account is `loadtest+<runId>-<n>@example.com`; `cleanup` will not touch anything else.
 - The last question per document is deliberately out of scope, to measure whether the model declines rather than guesses.
 - Deleting a user cascades to its documents and queries, so `cleanup` refuses a run that `report` has not snapshotted yet.
-- Corpus PDFs are kept under 4.3 MB: Vercel rejects request bodies above 4.5 MB, regardless of the 10 MB validation in the upload action.
 
 ## Deploying
 
@@ -239,6 +238,8 @@ Do not set `INNGEST_ENV` in Vercel with an "All Environments" scope; it override
 
 **Deployment Protection.** Vercel's Deployment Protection blocks Inngest from reaching `/api/inngest`. Under Standard Protection this affects preview deployments; under All Deployments it affects production too. Either disable it (Project → Settings → Deployment Protection) or, on a Pro plan, configure Protection Bypass for Automation and add the bypass secret to the Inngest integration settings.
 
+**OpenAI rate limits.** Every question shares the account's `gpt-4o-mini` tokens-per-minute limit; each one costs about 3,300 prompt tokens plus the 700-token `max_tokens` reservation. When the limit is hit, the SDK retries with backoff, and if that fails `/api/query` answers `429` with `Retry-After` rather than an error page.
+
 Note that `src/app/api/inngest/route.ts` declares `maxDuration = 300`. Vercel's Hobby plan caps function duration well below that, so large documents can be cut off mid-processing.
 
 ## Not implemented
@@ -247,6 +248,5 @@ Honest status, so nobody goes looking for these:
 
 - **Billing.** The `subscriptions` table and `NEXT_PUBLIC_ENABLE_STRIPE` flag exist, but there is no Stripe code. Tier limits are enforced against `user_usage` counters only.
 - **Automated tests.** Unit tests cover text normalization and chunking only (`pnpm test`). End-to-end verification is the load test and the retrieval eval harness.
-- **Uploads above 4.5 MB in production.** Vercel caps request bodies at 4.5 MB, so the 10 MB limit is only reachable locally. Fixing it means uploading straight to Storage with a signed upload URL.
 - **OCR.** Image-only PDFs fail extraction rather than falling back.
 - **Multi-document questions.** Each query is scoped to a single document.
