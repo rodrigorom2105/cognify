@@ -32,6 +32,12 @@ describe('normalizeExtractedText', () => {
   });
 });
 
+describe('normalizeExtractedText control characters', () => {
+  it('strips NUL and other control characters but keeps newlines', () => {
+    expect(normalizeExtractedText('a\u0000b\u0007c\nd')).toBe('abc\nd');
+  });
+});
+
 describe('chunkText', () => {
   it('returns no chunks for blank input', () => {
     expect(chunkText('   ')).toEqual([]);
@@ -54,6 +60,52 @@ describe('chunkText', () => {
     expect(chunks.length).toBeGreaterThan(1);
     for (const chunk of chunks) {
       expect(chunk.length).toBeLessThanOrEqual(800 + 100 + 2);
+    }
+  });
+});
+
+describe('chunkText long paragraphs', () => {
+  const sentence = 'Retrieval quality depends on chunk size. ';
+
+  it('splits a long paragraph that follows a full chunk', () => {
+    const intro = sentence.repeat(30).trim(); // ~1,200 chars, fits one chunk
+    const long = sentence.repeat(400).trim(); // ~16,000 chars, no breaks
+    const chunks = chunkText(`${intro}\n\n${long}`, {
+      chunkSize: 1500,
+      overlap: 300,
+      minChunkSize: 0,
+    });
+
+    expect(chunks.length).toBeGreaterThan(10);
+    for (const chunk of chunks) {
+      expect(chunk.length).toBeLessThanOrEqual(1500 + 300 + 2);
+    }
+  });
+
+  it('splits a long sentence that follows a full chunk', () => {
+    // No sentence punctuation, so splitLongParagraph sees one giant sentence.
+    const words = 'translated target text '.repeat(700).trim();
+    const chunks = chunkText(`${sentence.repeat(30)}${words}`, {
+      chunkSize: 1500,
+      overlap: 300,
+      minChunkSize: 0,
+    });
+
+    expect(chunks.length).toBeGreaterThan(10);
+    for (const chunk of chunks) {
+      expect(chunk.length).toBeLessThanOrEqual(1500 + 300 + 2);
+    }
+  });
+
+  it('splits text with no whitespace at all', () => {
+    const chunks = chunkText(`intro\n\n${'x'.repeat(5000)}`, {
+      chunkSize: 1000,
+      overlap: 100,
+      minChunkSize: 0,
+    });
+
+    for (const chunk of chunks) {
+      expect(chunk.length).toBeLessThanOrEqual(1000 + 100 + 2);
     }
   });
 });
