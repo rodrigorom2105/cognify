@@ -107,6 +107,7 @@ Without the dev server, uploads will store the file and create the row, but noth
 | `pnpm format` | Prettier over `src/` |
 | `pnpm db:types` | Regenerate `database.types.ts` from the remote schema |
 | `pnpm eval:recall` | Recall@5 chunking evaluation |
+| `pnpm loadtest <fetch\|run\|report\|cleanup>` | End-to-end load test against a deployment — see below |
 | `pnpm supabase:start` / `:stop` / `:status` / `:reset` | Local Supabase stack |
 
 ## Retrieval evaluation
@@ -199,6 +200,35 @@ select
 
 Rates are `gpt-4o-mini` at $0.15/$0.60 per 1M input/output tokens and `text-embedding-3-small` at $0.02 per 1M. They are hardcoded in the queries above, not in the schema, so check them against current pricing before quoting a figure.
 
+### Latency and pipeline metrics
+
+Ingestion timing lives on `documents`, measured inside each Inngest step and returned from it, so step replays do not re-measure:
+
+| Column | What it covers |
+| --- | --- |
+| `processing_started_at` / `processing_completed_at` | `created_at → started` is queue wait; `started → completed` is pipeline time |
+| `chunk_count` | Chunks stored for the document |
+| `processing_metrics` | Per-step ms and retries, text size before/after normalization, chunk size stats |
+| `error_message` | Why processing failed, when `status = 'failed'` |
+
+Each `queries` row also records `embed_ms`, `retrieval_ms`, `ttft_ms` (request received → first token), `generation_ms`, `total_ms`, `chunks_returned`, and the top and mean similarity of the retrieved chunks. All of them are `NULL` for rows written before instrumentation.
+
+## Load testing
+
+`scripts/loadtest.mjs` drives a deployed instance through the same HTTP surface the dashboard uses — `POST /api/documents` (a thin wrapper over the `uploadDocument` server action) and `POST /api/query` — so ingestion runs on the real Inngest environment.
+
+```bash
+pnpm loadtest fetch                                    # download the corpus in loadtest/corpus.json
+pnpm loadtest run --base-url https://… --users 5       # N concurrent users, 3 docs each, 6 questions per doc
+pnpm loadtest report                                   # snapshot DB rows, write loadtest/results/summary.md
+pnpm loadtest cleanup --run <runId>                    # delete the run's users, rows and files
+```
+
+- Test users are created through the admin API with `email_confirm: true` — sign-up sends a confirmation email, and Supabase's built-in mailer allows only a few per hour. Every account is `loadtest+<runId>-<n>@example.com`; `cleanup` will not touch anything else.
+- The last question per document is deliberately out of scope, to measure whether the model declines rather than guesses.
+- Deleting a user cascades to its documents and queries, so `cleanup` refuses a run that `report` has not snapshotted yet.
+- Corpus PDFs are kept under 4.3 MB: Vercel rejects request bodies above 4.5 MB, regardless of the 10 MB validation in the upload action.
+
 ## Deploying
 
 The app deploys to Vercel. Two things are easy to get wrong:
@@ -216,6 +246,7 @@ Note that `src/app/api/inngest/route.ts` declares `maxDuration = 300`. Vercel's 
 Honest status, so nobody goes looking for these:
 
 - **Billing.** The `subscriptions` table and `NEXT_PUBLIC_ENABLE_STRIPE` flag exist, but there is no Stripe code. Tier limits are enforced against `user_usage` counters only.
-- **Automated tests.** No unit or integration tests. Verification is manual, plus the retrieval eval harness.
+- **Automated tests.** Unit tests cover text normalization and chunking only (`pnpm test`). End-to-end verification is the load test and the retrieval eval harness.
+- **Uploads above 4.5 MB in production.** Vercel caps request bodies at 4.5 MB, so the 10 MB limit is only reachable locally. Fixing it means uploading straight to Storage with a signed upload URL.
 - **OCR.** Image-only PDFs fail extraction rather than falling back.
 - **Multi-document questions.** Each query is scoped to a single document.

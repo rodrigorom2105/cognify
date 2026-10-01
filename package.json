@@ -19,6 +19,7 @@
     "supabase:reset": "supabase db reset",
     "db:types": "node scripts/gen-db-types.mjs",
     "inngest": "pnpm dlx inngest-cli dev",
+    "loadtest": "node scripts/loadtest.mjs",
     "eval:recall": "node scripts/eval-recall.mjs --eval eval/recall/eval-set.small.json --k 5"
   },
   "dependencies": {

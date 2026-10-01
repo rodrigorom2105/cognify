@@ -73,3 +73,6 @@ bun.lockb
 
 # Personal notes (not part of the project)
 CV-COGNIFY.md
+
+# Load test: downloaded corpus PDFs
+loadtest/.cache/
